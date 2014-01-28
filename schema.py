@@ -1,27 +1,15 @@
-# Generalised interface to questionnaire survey data and metadata
-
-# Copyright (C) 2005  Computable Functions Limited, UK
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+# Copyright (c) 2005 Computable Functions Limited, GUILDFORD, UK
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# All Rights Reserved.
 #
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>
-
 
 import exceptions
 
 __metaclass__ = type
 		
 interestingNumbers = (2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000,
-											10000, 20000, 50000, 100000, 200000, 500000, 1000000)
+	10000, 20000, 50000, 100000, 200000, 500000, 1000000)
 
 class SchemaError (exceptions.Exception): pass
 
@@ -173,7 +161,7 @@ class VariableValue:
 		return "Variable %s at record %s (%s)" %\
 			(self.variable.name, self.dataset.recordNumber,
 			 self.variable.displayValue(self.value))
-
+		
 class Dataset:
 
 	# Initialise, specifying a schema representation
@@ -186,6 +174,8 @@ class Dataset:
 		self.variableValueSequence =\
 			[self._assignVariableValue (index) for index in xrange(0,len(self.schema.variableSequence))]
 		self.reset1 ()
+		self.maxErrorCount = 100
+		self.showTraceback = False
 		
 	# assign a VariableValue subclass instance appropriate to the dataset type and variable type
 	def _assignVariableValue (self, index):
@@ -212,12 +202,17 @@ class Dataset:
 			if variableValue is not None and variableValue.enabled:
 				self.enabledValues.append (variableValue)
 		self.recordNumber = 0
+		self.errorCount = 0
 		
 	# Return True if new record available from the data store, False if not
 	def read (self):
 		self.recordNumber += 1
 		for variableValue in self.enabledValues:
-			variableValue._extractValue()
+			try:
+				variableValue._extractValue()
+			except Exception, e:
+				self.errorCount += 1
+				self.errorReporter (variableValue, e)
 		return True
 		
 	# Write the record to the data store
@@ -276,7 +271,7 @@ class Dataset:
 							total.increment(weight)
 					moreData = self.read()
 				return distributions
-					
+		
 	def convert (self, outputDataset, progressReporter = None):
 		conversionSequence = []
 		for variable in self.schema.variableSequence:
@@ -291,20 +286,34 @@ class Dataset:
 		self.reset2()
 		outputDataset.reset2()
 		moreData = self.read()
-		recordCount = 0
+		errorCount = 0
 		while moreData:
-			recordCount += 1
 			for (vv, ovv) in conversionSequence:
 				ovv._setValue (vv._getValue())
 			outputDataset.write()
+					
 			if progressReporter is not None:
-				if recordCount in interestingNumbers:
-					progressReporter (recordCount, 
-						"%d record(s) processed" % recordCount)
+				if self.recordNumber in interestingNumbers:
+					progressReporter (self.recordNumber, 
+						"%d record(s) processed" % self.recordNumber)
 				else:		
-					progressReporter (recordCount, None)
-			moreData = self.read()
+					progressReporter (recordCount, self.recordNumber)
 
+			moreData = self.read()
+			
+	def errorReporter (self, vv, e):
+		import sys
+		import traceback
+		print >>sys.stderr, "--Error at record %d: %s" %\
+			(self.recordNumber, e)
+		if self.errorCount > self.maxErrorCount:
+			print >>sys.stderr,\
+				"--Maximum of %d conversion errors exceeded" %\
+					self.maxErrorCount
+			if self.showTraceback:
+				traceback.print_exc ()
+			sys.exit (1)
+		
 class Total:
 
 	def __init__ (self):
