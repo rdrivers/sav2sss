@@ -2,6 +2,6 @@
 
 = Introduction =
 
-The Windows executable is to be found at: [https://code.google.com/p/sav2sss/source/browse/trunk/output/sav2sss.exe]
+The Windows executable is to be found at: [https://www.dropbox.com/sh/wjaa6cqdtb4cjfs/wTy-95zZiH/sav2sss.exe]
 
-Documentation is at: [https://code.google.com/p/sav2sss/source/browse/trunk/output/readme.html]
+Documentation is at: [https://www.dropbox.com/sh/wjaa6cqdtb4cjfs/YXN19Lx56s/readme.html]
