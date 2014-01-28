@@ -1,28 +1,9 @@
-# Schema implementation for triple-S XML version 1.2
-
-# Copyright (C) 2005  Computable Functions Limited, UK
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>
-
 import exceptions
 import libxml2Util
 
 from xml.sax.saxutils import escape, quoteattr
 from schema import *
 import re
-import psyco
-psyco.full ()
 
 class SSSXMLError (exceptions.Exception): pass
 		
@@ -135,6 +116,8 @@ class SSSXMLSchema (SchemaRepresentation):
 		recordLength = 0
 		index = 0
 		for variable in self.schema.variableSequence:
+			#if variable.length is None:
+			#	raise SSSXMLError, "Cannot allocate variable %s (%s)" % (variable.name, variable.type)
 			index += 1
 			variable.id = index
 			variable.start = recordLength + 1
@@ -168,6 +151,7 @@ class SSSXMLSchema (SchemaRepresentation):
 		<record ident=%s>\n""" %\
 			(forceEncoding(escape(self.schema.title)), quoteattr(self.schema.name)))
 		for variable in self.schema.variableSequence:
+			# if variable.length is None: break
 			use = ""
 			if self.schema.serialVariableSequence == variable.index:
 				use = ' use="serial"'
@@ -264,6 +248,7 @@ class SSSVariableValue (VariableValue):
 		value = self.value
 		if type (value) in (str, unicode):
 			value = value.replace ("\n", " ")
+		# if self.field is not None:
 		self.field = ("%-*s" % (self.width, value)).encode (self.encoding, "replace")
 		if len(self.field) > self.width: self.field = self.field[0:self.width]
 			

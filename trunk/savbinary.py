@@ -1,20 +1,4 @@
-# Python package to access binary data from SPSS .sav file
-
-# Copyright (C) 2009  Computable Functions Limited, UK
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>
-
+# Python package to create XML rendition of Quantum data from the binaries
 
 import exceptions
 import struct
@@ -126,10 +110,14 @@ class SPSSOutputFormat:
 		self.width = bytes [1]
 		self.format_type = bytes [2]
 		if not formatCodeMap.has_key (self.format_type):
-			raise SAVError, "Unknown format type %s" % self.format_type
+			# raise SAVError, "Unknown format type %s" % self.format_type
+			self.format_type_code = "D/k (%s)" % self.format_type
+			# print "Unknown format type %s" % str (self)
+		else:
+			self.format_type_code = formatCodeMap [self.format_type]
 	def __str__ (self):
-		format_type_code = formatCodeMap [self.format_type]
-		return "Format #%s %s.%s" % (format_type_code, self.width, self.dp)
+		# format_type_code = formatCodeMap [self.format_type]
+		return "Format #%s %s.%s" % (self.format_type_code, self.width, self.dp)
 
 class SPSSLabelList:
 	def __init__ (self, labels, variablesApplicable):
@@ -196,6 +184,7 @@ class SAVVariable:
 		self.alignment = None
 		self.fullPosition = None
 		
+		
 	def isValidMissingValue (self, value):
 		if self.n_missing_values == 0: return False
 		#print self.name, self.n_missing_values, self.missing_values, value
@@ -226,6 +215,12 @@ class SAVVariable:
 class SAVDataset:
 
 	def __init__ (self, SAVFilename, sensibleStringLengths=True):
+		self.lowest = 0
+		self.highest = 0
+		self.floating_point_rep = 1
+		self.character_code = 3
+		self.encoding = "ISO-8859-1"
+		self.sysmis = 0
 	
 		def getRecordType (required=None):
 			return_type = None
@@ -247,6 +242,7 @@ class SAVDataset:
 			if required is not None:
 				raise SAVError, "Unexpected EOF looking for %s at self.offset %d (X%x)" %\
 					(required, self.offset, self.offset)
+			# print "..Found record type %s at offset %d" % (returnType, offset)
 					
 		binFile = open(SAVFilename, 'rb')
 		self.binData = binFile.read()
@@ -329,7 +325,6 @@ class SAVDataset:
 			rec_type = getRecordType ()
 			
 		while rec_type is not None:
-			
 			if rec_type == "6":	# Document record
 				self.n_lines = struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0]
 				self.offset  += 4
@@ -465,8 +460,8 @@ class SAVDataset:
 
 		self.dataOffset = self.offset
 		self.dataSize = len (self.binData) - self.dataOffset
-		#print "..Data section starts at offset %d (X%x), size %d byte(s)" %\
-		#	(self.offset, self.offset, self.dataSize)
+		print "..Data section starts at offset %d (X%x), size %d byte(s)" %\
+			(self.offset, self.offset, self.dataSize)
 
 		self.sizeVariables ()
 	
