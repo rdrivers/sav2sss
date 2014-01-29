@@ -127,7 +127,9 @@ class SSSXMLSchema (SchemaRepresentation):
 				variable.finish = variable.start
 			elif variable.type == "quantity":
 				maxValue = int(math.ceil(variable.max))
+				minValue = int(math.ceil(variable.min))
 				width = codeLength (maxValue)
+				if minValue < 0: width = width + 1
 				variable.finish = recordLength + width
 				if variable.dp > 0:
 					variable.finish += variable.dp + 1
@@ -361,8 +363,10 @@ class SSSBitstringVariableValue (SSSMultipleVariableValue):
 class SSSDataset (Dataset):
 
 	def __init__ (self, schemaRepresentation, filename, isInput=True, dataEncoding="ascii"):
-		if isInput: dataFile = file (filename)
-		else:			 dataFile = file (filename, 'w')
+		if isInput:
+			dataFile = file (filename)
+		else:
+			dataFile = file (filename, 'w')
 		self.filename = filename
 		self.hasBeenWritten = False
 		self.hasBeenReopened = False

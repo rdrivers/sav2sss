@@ -179,7 +179,8 @@ if __name__ == "__main__":
 	sensibleStringLengths = True
 	full = False
 	outputEncoding = "iso-8859-1"
-	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:')
+	ident = "A"
+	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:')
 	for (option, value) in optlist:
 		if option == '-s':
 			sensibleStringLengths = False
@@ -187,12 +188,14 @@ if __name__ == "__main__":
 			full = True
 		if option == '-o':
 			outputEncoding = value
+		if option == '-i':
+			ident = value.upper ()
 			
 	(root, savExt) = os.path.splitext (args [0])
 	print "..Converting %s to %s.xml and %s.asc" %\
 		(args [0], root, root)
 
-	if len(args) == 1:
+	if len(args) == 1 and ident.isalpha () and len(ident) == 1:
 		try:
 			savData = savbinary.SAVDataset (args [0], sensibleStringLengths)
 		except exceptions.Exception, e:
@@ -208,6 +211,7 @@ if __name__ == "__main__":
 					 len(savSchema.schema.answerListMap))
 				if full: savData.printMetadata (True)
 				newSchema = sssxmlschema.SSSXMLSchema().convert (savSchema.schema, "xx://yy")
+				newSchema.schema.name = ident
 				newSchema.allocate()
 				outputXMLFile = open (root + ".xml", 'w')
 				newSchema.save (outputXMLFile)
@@ -236,4 +240,4 @@ if __name__ == "__main__":
 				print "Cannot prepare triple-S XML dataset (%s)" % e
 				logException ()
 	else:
-		print  "--Usage: savschema [-v] [-s] [-f] [-oOutputEncoding] SAV-file-name"
+		print  "--Usage: savschema [-v] [-s] [-f] [-iIdent] [-oOutputEncoding] SAV-file-name"
