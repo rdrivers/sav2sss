@@ -1,5 +1,7 @@
 import exceptions
 import savbinary
+import re
+import fprog
 
 from schema import *
 
@@ -13,7 +15,34 @@ def invertMap (map):
 	
 len1Codes = ["%d" % i for i in xrange(0, 10)]
 len2Codes = ["%02d" % i for i in xrange(0, 100)]
-								
+
+identifierRE = re.compile ("[a-zA-Z][a-zA-Z0-9_]*")
+ 
+def structuredNameIndex (aName):
+	components = aName.split ("_")
+	if len (components) > 1 and components [-1].isdigit ():
+		return int (components [-1])
+	else:
+		return None
+
+def structuredNameRoot (aName):
+	return "_".join (aName.split ("_") [:-1])
+		
+def isSPSSMultiple (vList, next):
+	if structuredNameIndex (vList [0].name) == 1 or structuredNameIndex (vList [0].longName) == 1:
+		rootTitleSplit = ":".join (vList [0].label.split (":") [:-1])
+		if len (rootTitleSplit) > 0 and\
+			(structuredNameIndex (next.name) == len (vList) + 1 or\
+			 structuredNameIndex (next.longName) == len (vList) + 1) and\
+		   	next.length == 1 and\
+		   	":".join (next.label.split (":") [:-1]) == rootTitleSplit:		   	
+			result = True
+		else:
+			result = False
+	else:
+		result = False
+	return result
+
 class SAVSchema (SchemaRepresentation):
 
 	def __init__ (self):
@@ -28,20 +57,59 @@ class SAVSchema (SchemaRepresentation):
 		nonDummyMap = {}
 		for index, savVariable in enumerate (savDataset.variables):
 			if savVariable.isDummy: continue
+			if savVariable.labelList is not None:
+				savVariable.length =\
+					len (savDataset.labelLists [savVariable.labelList].labels)
+			else:
+				savVariable.length = 0
+			savVariable.labels = None
+		revisedVariables = list (fprog.group (isSPSSMultiple, savDataset.variables))
+		multipleCount = 0
+		for variableGroup in revisedVariables:
+			initialVariable = variableGroup [0]
+			if len (variableGroup) <> 1:
+				multipleCount = multipleCount + 1
+				print "..SPSS-style multiple found: %s (%d categories)" %\
+					(structuredNameRoot (variableGroup [0].name), len(variableGroup))
+				initialVariable.isMultiple = True
+				initialVariable.label = ":".join (initialVariable.label.split (":") [:-1])
+				initialVariable.labels = []
+				for index, componentVariable in enumerate (variableGroup):
+					label = savDataset.labelLists [componentVariable.labelList].labels [1]
+					initialVariable.labels.append\
+						(label)
+					if index > 0: componentVariable.isDummy = True
+				initialVariable.labelList = None
+				initialVariable.length = len (variableGroup)
+			else:
+				initialVariable.isMultiple = False
+		for index, savVariable in enumerate (savDataset.variables):
+			if savVariable.isDummy: continue
 			nonDummyMap [index] = nonDummyCount
 			nonDummyCount += 1
+			name = savVariable.name
+			if savVariable.isMultiple:
+				if savVariable.name == structuredNameRoot (savVariable.name):
+					name = structuredNameRoot (savVariable.longName)
+				else:
+					name = structuredNameRoot (savVariable.name)
 			if savVariable.labelList is not None:
-				answerList = AnswerList (self.schema, savVariable.name)
+				answerList = AnswerList (self.schema, name)
 				labelList = savDataset.labelLists [savVariable.labelList]
 				codes = [key for key in labelList.labels.keys ()]
 				codes.sort ()
 				for code in codes:
 					Answer (answerList).makeNew\
 						(None, code, labelList.labels [code])
+			elif savVariable.labels is not None:
+				answerList = AnswerList (self.schema, name)
+				for index, label in enumerate (savVariable.labels):
+					Answer (answerList).makeNew\
+						(None, index+1, label)
 			else:
 				answerList = None
 				
-			variable = Variable (self.schema, savVariable.name, answerList)
+			variable = Variable (self.schema, name, answerList)
 			variable.translatable = False
 			if savVariable.label is None or len (savVariable.label) == 0:
 				variable.ttext = savVariable.longName
@@ -52,6 +120,12 @@ class SAVSchema (SchemaRepresentation):
 			if savVariable.labelList is not None:
 				variable.type = 'single'
 				variable.length = answerList.maxCode
+			elif savVariable.isMultiple:
+				variable.type = 'multiple'
+				variable.length = savVariable.length
+				variable.count = variable.length
+				variable.isSpread = False
+				variable.width = 1
 			elif savVariable.type_ > 0:
 				variable.type = 'character'
 				if savVariable.extendedStringLength or savVariable.type_ == 255:
@@ -120,7 +194,10 @@ class SAVQuantityVariableValue (SAVVariableValue):
 			except:
 				raise SavSchemaError, "Can't extract quantity value %s" %\
 					(self.reportValue (),)
-						
+			
+class SAVMultipleVariableValue (SAVVariableValue):
+	pass
+	
 class SAVDataset (Dataset):
 
 	def __init__ (self, schemaRepresentation, savDataset):
@@ -135,6 +212,8 @@ class SAVDataset (Dataset):
 			return SAVQuantityVariableValue (self, index)
 		elif variable.type == 'single':
 			return SAVSingleVariableValue (self, index)
+		elif variable.type == 'multiple':
+			return SAVMultipleVariableValue (self, index)
 		raise SavSchemaError, "Can't decode variable: %s" % variable.name
 
 	def read (self):
@@ -158,6 +237,7 @@ if __name__ == "__main__":
 	import os.path
 	import getopt
 	import sssxmlschema
+	import metaschema
 			
 	def logExceptionText (details=None):
 		import traceback
@@ -235,6 +315,7 @@ if __name__ == "__main__":
 							print "Unlisted singleton values:", others
 						
 				SSSDataset.close ()
+				outputXMLFile.close ()
 				
 			except exceptions.Exception, e:
 				print "Cannot prepare triple-S XML dataset (%s)" % e

@@ -640,7 +640,13 @@ class SAVDataset:
 		nonDummies = []
 		for index, variable in enumerate (self.variables):
 			if not variable.isDummy:
-				if variable.type_ > 0:
+				if variable.isMultiple:
+					value = []
+					for categoryIndex in xrange (variable.length):
+						if variableValues [index + categoryIndex] != 0:
+							value.append (categoryIndex + 1)
+					nonDummies.append ((index, value))
+				elif variable.type_ > 0:
 					if variable.extendedStringLength:
 						try:
 							value = "".join ((value for value in variableValues
@@ -696,6 +702,7 @@ class SAVDataset:
 				if variable.type_ == 0:
 					variable.min = self.highest
 					variable.max = self.lowest
+				variable.isMultiple = False
 		stream = self.getCaseStream ("report")
 		for case in stream:
 			for (sequence, value) in case:

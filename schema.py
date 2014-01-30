@@ -79,6 +79,44 @@ class Schema:
 	def findVariable (self, name):
 		for (index, variable) in enumerate(self.variableSequence):
 			if variable.name == name: return index
+			
+	# Copy a variable from another schema
+	def copyVariable (self, variable):
+		if variable.answerList is not None:
+			# If named answer list already exists in this schema, use the existing one
+			if variable.answerList.name is None or not\
+			   self.answerListMap.has_key (variable.answerList.name):
+				answerList = AnswerList (self, variable.answerList.name)
+				for answer in variable.answerList.answers ():
+					Answer (answerList).makeNew (answer.name, answer.code, answer.text)
+			else:
+				answerList = self.answerListMap [variable.answerList.name]
+		else:
+			answerList = None
+		newVariable = Variable (self, variable.name, answerList)
+		newVariable.ttext = variable.ttext
+		newVariable.qtext = variable.qtext
+		newVariable.type = variable.type
+		if variable.baseVariableIndex is not None:
+			raise SchemaError, "Can't copy based variable to new schema: %s" %\
+				(variable.name,)
+		newVariable.baseVariableIndex = None
+		if newVariable.type in ('single', 'multiple', 'character'):
+			newVariable.length = variable.length
+		newVariable.count = variable.count
+		if newVariable.type == 'quantity':
+			newVariable.dp = variable.dp
+			newVariable.min = variable.min
+			newVariable.max = variable.max
+			
+	# Clone a complete schema
+	# - only answer lists that are used
+	# - don't reuse answer lists
+	def copy (self, aSchema):
+		self.name = aSchema.name
+		self.title = aSchema.title
+		for variable in aSchema.variableSequence:
+			self.copyVariable (variable)
 
 class SchemaRepresentation:
 
@@ -235,42 +273,42 @@ class Dataset:
 		pass
 		
 	def getDistributions (self):
-				self.reset1 ()
-				weightSequence = self.schema.weightVariableSequence
+		self.reset1 ()
+		weightSequence = self.schema.weightVariableSequence
+		if weightSequence is not None:
+			weightvv = self.getVariableValue (self.schema.variableSequence[weightSequence])
+			self.enable (weightvv)
+		distributions = []
+		for variable in self.schema.variableSequence:
+			vv = self.getVariableValue (variable.name)
+			self.enable (vv)
+			distributions.append ((vv, {}))
+		self.reset2 ()
+		moreData = self.read()
+		while moreData:
+			for (vv, distribution) in distributions:
 				if weightSequence is not None:
-					weightvv = self.getVariableValue (self.schema.variableSequence[weightSequence])
-					self.enable (weightvv)
-				distributions = []
-				for variable in self.schema.variableSequence:
-					vv = self.getVariableValue (variable.name)
-					self.enable (vv)
-					distributions.append ((vv, {}))
-				self.reset2 ()
-				moreData = self.read()
-				while moreData:
-					for (vv, distribution) in distributions:
-						if weightSequence is not None:
-							weight = vv.getValue ()
-						else:
-							weight = 1.0
-						value = vv.getValue()
-						if type (value) == list:
-							for individualValue in value:
-								try:
-									total = distribution[individualValue]
-								except:
-									total = Total()
-									distribution[individualValue] = Total()
-								total.increment(weight)
-						else:
-							try:
-								total = distribution [value]
-							except:
-								total = Total()
-								distribution [value] = total
-							total.increment(weight)
-					moreData = self.read()
-				return distributions
+					weight = vv.getValue ()
+				else:
+					weight = 1.0
+				value = vv.getValue()
+				if type (value) == list:
+					for individualValue in value:
+						try:
+							total = distribution[individualValue]
+						except:
+							total = Total()
+							distribution[individualValue] = Total()
+						total.increment(weight)
+				else:
+					try:
+						total = distribution [value]
+					except:
+						total = Total()
+						distribution [value] = total
+					total.increment(weight)
+			moreData = self.read()
+		return distributions
 		
 	def convert (self, outputDataset, progressReporter = None):
 		conversionSequence = []
