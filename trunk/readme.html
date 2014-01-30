@@ -73,6 +73,26 @@ Characters from the sav file that are not representable in the specified output
 encoding are rendered in the data file as ? and in the XML as entity
 references.</p>
 
+<h4>Multiple categorical variables</h4>
+
+<p>These variables are represented in .sav files by a sequence of consecutive
+regular variables, identifiable as follows:</p>
+<ul>
+  <li>there is one variable per category of the multiple, in the sequence of
+    the categories</li>
+  <li>each variable has the same root name with an underscore followed by an
+    integer as a suffix (with some complications where adding the suffix makes
+    the variable name into a long name)</li>
+  <li>each variable has a title comprised of the underlying multiple variable
+    title with the answer label of the corresponding category</li>
+  <li>each variable has an answer list containing only one answer</li>
+  <li>each variable has values zero or one</li>
+</ul>
+
+<p>sav2sss recognises this scenario and exports it in the XML as a Triple-S
+multiple variable with the bitstring representation. The data file
+representation is identical to that of the sequence of single variables.</p>
+
 <h2>Known Issues</h2>
 <ol>
   <li>Values marked as being in time/date format in the sav file are not

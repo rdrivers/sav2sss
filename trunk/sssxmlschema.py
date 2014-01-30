@@ -389,7 +389,7 @@ class SSSDataset (Dataset):
 			return SSSSpreadVariableValue (self, index)
 		elif variable.type == 'multiple' and not variable.isSpread:
 			return SSSBitstringVariableValue (self, index)
-		raise SSSXMLError, "Can't decode variable: %s" % variable.name
+		raise SSSXMLError, "Can't decode variable: (%s)" % (variable.name,)
 
 	def read (self):
 		self.record = self.dataStore.readline()
