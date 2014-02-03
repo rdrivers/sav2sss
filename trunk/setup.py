@@ -26,4 +26,4 @@ setup(
       description="savschema - import .sav data into triple-S",
       name="sav2sss",
       zipfile=None,
-      version="0.1")
+      version="0.2")

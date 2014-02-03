@@ -103,11 +103,13 @@ class Schema:
 		newVariable.baseVariableIndex = None
 		if newVariable.type in ('single', 'multiple', 'character'):
 			newVariable.length = variable.length
-		newVariable.count = variable.count
 		if newVariable.type == 'quantity':
 			newVariable.dp = variable.dp
 			newVariable.min = variable.min
 			newVariable.max = variable.max
+		elif newVariable.type == 'multiple':
+			newVariable.count = variable.count
+			newVariable.isSpread = variable.isSpread
 			
 	# Clone a complete schema
 	# - only answer lists that are used
@@ -385,6 +387,7 @@ class Variable:
 		# length: Number of categories (categorical)
 		#				 Number of characters (character string)
 		# count: max number of values (1 unless multiple)
+		# isSpread: whether sparse representation to be used (if multiple) 
 		# dp:		number of decimal places (if quantity)
 		# min:	 minimum value (quantity)
 		# max:	 maximum value (quantity)

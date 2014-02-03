@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor</h1>
+<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.2</h1>
 
 <p>The sav2sss utility converts an SPSS® .sav file to Triple-S XML metadata and
 data.</p>
@@ -36,7 +36,7 @@ Visual C 2008 runtime DLLs</a>.</p>
 <h2>Running sav2sss</h2>
 
 <p>sav2sss must be executed from a command prompt:</p>
-<pre>&lt;some-folder&gt;\sav2sss [-ooutputEncoding] [-v] [-s] [-f] [-iIdent] SAV-file</pre>
+<pre>&lt;some-folder&gt;\sav2sss [-ooutputEncoding] [-v] [-s] [-f] [-iIdent] [-yYes] [-nNo] -a[delimiter] [-bdelimiter] [-mAnswers...] SAV-file</pre>
 
 <p>Switches:</p>
 <ul>
@@ -60,6 +60,23 @@ Visual C 2008 runtime DLLs</a>.</p>
   <li>The -i switch may be used to specify the record Ident for the Triple-S
     specification; it should be a single Latin character A-Z. The default is
   A.</li>
+  <li>The -y switch specifies the label used for Yes answers (default Yes)</li>
+  <li>The -n switch specifies the label used for No answers (default No)</li>
+  <li>The -a switch specifies the delimiter between an varying prefix and an
+    unvarying suffix in labels of component variables of multiples. If there
+    are no variables composed in this way in the file, use a blank. Default is
+    blank, i.e. "-a "; <em>note that if a switch value contains blanks it and
+    its value should be enclosed in quotes</em>.</li>
+  <li>The -b switch specifies the delimiter between an unvarying prefix and an
+    varying suffix in labels of component variables of multiples. If there are
+    no variables composed in this way in the file, use a blank. Default is
+    colon, i.e.. -a:</li>
+  <li>The -m switch specifies the answer labels used for 1st answer, 2nd answer
+    etctera in spread multiples. The default is "-m1st answer,2nd answer,3rd
+    answer,4th answer,5th answer,6th answer,7th answer,8th answer". This allows
+    spread multiple variables to be distinguised from grids. Specify as many
+    answers as there may be responses to any of the spread multiples in the
+    .sav file.</li>
 </ul>
 
 <h4>Character encodings</h4>
@@ -73,7 +90,7 @@ Characters from the sav file that are not representable in the specified output
 encoding are rendered in the data file as ? and in the XML as entity
 references.</p>
 
-<h4>Multiple categorical variables</h4>
+<h2>Multiple categorical variables</h2>
 
 <p>These variables are represented in .sav files by a sequence of consecutive
 regular variables, identifiable as follows:</p>
@@ -83,15 +100,68 @@ regular variables, identifiable as follows:</p>
   <li>each variable has the same root name with an underscore followed by an
     integer as a suffix (with some complications where adding the suffix makes
     the variable name into a long name)</li>
+</ul>
+
+<p>Together with one of the following scenarios:</p>
+
+<h4>Bitstring representation</h4>
+<ul>
   <li>each variable has a title comprised of the underlying multiple variable
     title with the answer label of the corresponding category</li>
-  <li>each variable has an answer list containing only one answer</li>
-  <li>each variable has values zero or one</li>
+  <li>each variable has an answer list containing either:
+    <ul>
+      <li>only one answer coded as one <strong>or</strong></li>
+      <li>identical answer lists containing a specific label for Yes and
+        another for No (as specified by the -y and -n switches)</li>
+    </ul>
+  </li>
 </ul>
+
+<p>The resulting Triple-S multiple has regular format, with one field per
+category containing zero or one.</p>
 
 <p>sav2sss recognises this scenario and exports it in the XML as a Triple-S
 multiple variable with the bitstring representation. The data file
 representation is identical to that of the sequence of single variables.</p>
+
+<h4>Spread representation</h4>
+
+<p>This representation is used for sparse multiples, where the list of
+alternatives may be long but only a few selections are expected.</p>
+<ul>
+  <li>Each variable has a label comprised of the underlying multiple variable
+    title with with the standard answer (from the -m switch) corresponding to
+    its position in the sequence of components. I.e. using the defaults, the
+    first variable label will contain "1st answer", the second "2nd answer" and
+    so on.</li>
+  <li>Each variable has an identical answer list</li>
+</ul>
+
+<p>The resulting Triple-S multiple has 'spread' format, with one field per
+component variable.</p>
+
+<h4>Prefixes/suffixes</h4>
+
+<p>The variation in component variable labels may come at the beginning of the
+label, i.e. the labels have a fixed suffix which is the underlying question
+label, or at the end, i.e. the labels use the question label as a fixed prefix
+with the category label at the end. The prefix or suffix is separated from the
+varying part by a delimiter, typically a colon (:). You may specify either a
+prefix or a suffix, but not presently both, using the -a or -b switches. The
+default is to look for an unvarying prefix separated from the varying suffix by
+a colon as delimiter. The delimiter is not included in the XML, and may be
+longer than one character, e.g. "-b: ".</p>
+
+<h4>Consistency</h4>
+
+<p>sav2sss assumes that coding conventions will be consistent in any one .sav
+file, i.e.:</p>
+<ul>
+  <li>where the Yes/No representation of multiples is used, the same answer
+    labels are always used for Yes and No.</li>
+  <li>where spread representation is used, the same labels are always used for
+    the first answer, second answer etcetera.</li>
+</ul>
 
 <h2>Known Issues</h2>
 <ol>
