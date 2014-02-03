@@ -139,6 +139,7 @@ class SSSXMLSchema (SchemaRepresentation):
 					spreadSize = variable.count * variable.width
 					variable.finish = recordLength + spreadSize
 				else:
+					variable.width = 1
 					variable.finish = recordLength + variable.length
 			elif variable.type == "single":
 				variable.finish = recordLength + codeLength (variable.length)

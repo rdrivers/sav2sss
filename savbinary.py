@@ -125,7 +125,7 @@ class SPSSLabelList:
 		self.variablesApplicable = variablesApplicable
 				
 class SAVVariable:
-	def __init__ (self, data, offset):
+	def __init__ (self, dataset, data, offset):
 		def nextInt32 (signed=False):
 			if signed:
 				format = signedLongFormat
@@ -157,6 +157,7 @@ class SAVVariable:
 		def alignTo4 ():
 			self.SAVSize = (offset + self.SAVSize + 3)/4*4 - offset
 			
+		self.dataset = dataset
 		self.SAVSize = 0
 		self.type_ = nextInt32 (True)
 		self.has_var_label = nextInt32 ()
@@ -281,7 +282,7 @@ class SAVDataset:
 		while self.offset < len (self.binData) - 3:
 			rec_type = getRecordType ()
 			if rec_type != '2': break
-			newVariable = SAVVariable (self.binData, self.offset)
+			newVariable = SAVVariable (self, self.binData, self.offset)
 			self.offset += newVariable.SAVSize
 			dummyVariableCount = 0
 			while self.offset < len (self.binData) - 7 and\
@@ -642,9 +643,14 @@ class SAVDataset:
 			if not variable.isDummy:
 				if variable.isMultiple:
 					value = []
-					for categoryIndex in xrange (variable.length):
-						if variableValues [index + categoryIndex] != 0:
-							value.append (categoryIndex + 1)
+					if variable.isSpread:
+						for categoryIndex in xrange (variable.count):
+							if variableValues [index + categoryIndex] == 0: break
+							value.append (variableValues [index + categoryIndex])
+					else:
+						for categoryIndex in xrange (variable.length):
+							if variableValues [index + categoryIndex] == variable.yesCode:
+								value.append (categoryIndex + 1)
 					nonDummies.append ((index, value))
 				elif variable.type_ > 0:
 					if variable.extendedStringLength:

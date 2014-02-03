@@ -2,6 +2,7 @@ import exceptions
 import savbinary
 import re
 import fprog
+import difflib
 
 from schema import *
 
@@ -28,20 +29,104 @@ def structuredNameIndex (aName):
 def structuredNameRoot (aName):
 	return "_".join (aName.split ("_") [:-1])
 		
-def isSPSSMultiple (vList, next):
-	if structuredNameIndex (vList [0].name) == 1 or structuredNameIndex (vList [0].longName) == 1:
-		rootTitleSplit = ":".join (vList [0].label.split (":") [:-1])
-		if len (rootTitleSplit) > 0 and\
-			(structuredNameIndex (next.name) == len (vList) + 1 or\
-			 structuredNameIndex (next.longName) == len (vList) + 1) and\
-		   	next.length == 1 and\
-		   	":".join (next.label.split (":") [:-1]) == rootTitleSplit:		   	
-			result = True
-		else:
-			result = False
+# See if variable has yes/no answer list
+
+def isYesNo (savVariable):
+	if savVariable.labelList is None or\
+	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
+	       	return False
+	if yesLabel in savVariable.dataset.labelLists [savVariable.labelList].labels.values () and\
+	   noLabel in savVariable.dataset.labelLists [savVariable.labelList].labels.values ():
+	   	return True
+	return False
+		
+def findYesCode (savVariable):
+	if savVariable.labelList is None or\
+	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
+	       	return None
+	for code, value in savVariable.dataset.labelLists [savVariable.labelList].labels.items ():
+		if value == yesLabel: return code
+	
+# See if two answer lists are identical
+def isSameAnswerList (savVariable1, savVariable2):
+	if savVariable1.labelList is None or\
+	   savVariable2.labelList is None or\
+	   len (savVariable1.dataset.labelLists [savVariable1.labelList].labels) !=\
+	   	len (savVariable2.dataset.labelLists [savVariable2.labelList].labels):
+		return False
+	for key, value in savVariable1.dataset.labelLists [savVariable1.labelList].labels.items ():
+		if not savVariable1.dataset.labelLists [savVariable1.labelList].labels.has_key (key): return False
+		if value != savVariable1.dataset.labelLists [savVariable2.labelList].labels [key]: return False
+	return True
+
+def getPrefix (text):
+	if prefixDelimiterText == "": return ""
+	fragments = text.split (prefixDelimiterText)
+	if len (fragments) > 1:
+		return prefixDelimiterText.join (fragments [:-1])
 	else:
-		result = False
-	return result
+		return ""
+def getSuffix (text):
+	if suffixDelimiterText == "": return ""
+	fragments = text.split (suffixDelimiterText)
+	if len (fragments) > 1:
+		return suffixDelimiterText.join (fragments [1:])
+	else:
+		return ""
+	
+# See if sequence of variables is potentially a multiple based on their names
+def isPotentialMultiple (vList, next):
+	return (structuredNameIndex (vList [0].name) == 1 or
+		structuredNameIndex (vList [0].longName) == 1) and\
+	       (structuredNameIndex (next.name) == len (vList) + 1 or
+	        structuredNameIndex (next.longName) == len (vList) + 1)
+# See if sequence of variables looks like a spread format multiple (and not a grid)	
+def isPotentialSpread (vList, next):
+	if vList [0].label.find (spreadMultipleAnswers [0]) >= 0:
+		if len (spreadMultipleAnswers) < len (vList) + 1:
+			raise SavSchemaError, "More spread responses than supplied answers: %s" %\
+				(structuredNameRoot (vList [0].name))
+		return next.label.find (spreadMultipleAnswers [len (vList)]) >= 0
+	else:
+		return False
+def allAnswerListsSingleCategory (vList, next):
+	return vList [0].length == 1 and next.length == 1
+def allAnswerListsYesNo (vList, next):
+	return isYesNo (vList [0]) and isYesNo (next)
+def allAnswerListsSame (vList, next):
+	return isSameAnswerList (vList [0], next)
+def commonPrefix (vList, next):
+	lastPrefix = getPrefix (next.label)
+	if len (lastPrefix) == 0: return False
+	for savVariable in vList:
+		thisPrefix = getPrefix (savVariable.label)
+		if thisPrefix != lastPrefix:
+			return False
+	return True
+		
+def commonSuffix (vList, next):
+	lastSuffix = getSuffix (next.label)
+	if len (lastSuffix) == 0: return False
+	for savVariable in vList:
+		thisSuffix = getSuffix (savVariable.label)
+		if thisSuffix != lastSuffix:
+			return False
+	return len (firstSuffix) > 0 and firstSuffix == lastSuffix
+
+def isSPSSBitstringMultiple (vList, next):
+	return isPotentialMultiple (vList, next) and\
+	   (allAnswerListsSingleCategory (vList, next) or
+	    allAnswerListsYesNo (vList, next)) and\
+	   (commonPrefix (vList, next) or commonSuffix (vList, next))
+
+def isSPSSSpreadMultiple (vList, next):
+	return isPotentialMultiple (vList, next) and\
+	       allAnswerListsSame (vList, next) and\
+	       isPotentialSpread (vList, next)
+		
+def isSPSSMultiple (vList, next):
+	return isSPSSBitstringMultiple (vList, next) or\
+	       isSPSSSpreadMultiple (vList, next)
 
 class SAVSchema (SchemaRepresentation):
 
@@ -71,18 +156,50 @@ class SAVSchema (SchemaRepresentation):
 				multipleCount = multipleCount + 1
 				print "..SPSS-style multiple found: %s (%d categories)" %\
 					(structuredNameRoot (variableGroup [0].name), len(variableGroup))
+				if commonPrefix (variableGroup [:-1], variableGroup [-1]):
+					prefixLength = len (getPrefix (initialVariable.label))
+				else:
+					prefixLength = 0
+				if commonSuffix (variableGroup [:-1], variableGroup [-1]):
+					suffixLength = len (getPrefix (initialVariable.label))
+				else:
+					suffixLength = 0
+				
 				initialVariable.isMultiple = True
-				initialVariable.label = ":".join (initialVariable.label.split (":") [:-1])
-				initialVariable.labels = []
-				for index, componentVariable in enumerate (variableGroup):
-					label = savDataset.labelLists [componentVariable.labelList].labels [1]
-					initialVariable.labels.append\
-						(label)
-					if index > 0: componentVariable.isDummy = True
-				initialVariable.labelList = None
-				initialVariable.length = len (variableGroup)
+				initialVariable.isSpread = isSPSSSpreadMultiple\
+					(variableGroup [:-1], variableGroup [-1])
+				if initialVariable.isSpread:
+					for index, componentVariable in enumerate (variableGroup):
+						componentVariable.isDummy = True
+					initialVariable.isDummy = False
+					initialVariable.count = len (variableGroup)
+				else:
+					initialVariable.isSingleCategory = allAnswerListsSingleCategory\
+						(variableGroup [:-1], variableGroup [-1])
+					initialVariable.labels = []
+					for index, componentVariable in enumerate (variableGroup):
+						if initialVariable.isSingleCategory:
+							label = savDataset.labelLists [componentVariable.labelList].labels [1]
+							initialVariable.yesCode = 1
+						else:
+							if prefixLength > 0:
+								label = componentVariable.label\
+									[prefixLength+len(prefixDelimiterText):]
+							if suffixLength > 0:
+								label = label\
+									[:-suffixLength-len(suffixDelimiterText)]
+							initialVariable.yesCode = findYesCode (componentVariable)
+						initialVariable.labels.append\
+							(label)
+						if index > 0: componentVariable.isDummy = True
+					initialVariable.labelList = None
+					initialVariable.length = len (variableGroup)
+					initialVariable.label = initialVariable.label [:prefixLength]
+					if suffixLength > 0:
+						initialVariable += initialVariable.label [-suffixLength:]
 			else:
 				initialVariable.isMultiple = False
+				initialVariable.isSpread = False
 		for index, savVariable in enumerate (savDataset.variables):
 			if savVariable.isDummy: continue
 			nonDummyMap [index] = nonDummyCount
@@ -117,15 +234,18 @@ class SAVSchema (SchemaRepresentation):
 			else:
 				variable.ttext = savVariable.label
 				variable.qtext = savVariable.longName
-			if savVariable.labelList is not None:
+			variable.count = 1
+			if savVariable.labelList is not None and not savVariable.isSpread:
 				variable.type = 'single'
 				variable.length = answerList.maxCode
 			elif savVariable.isMultiple:
 				variable.type = 'multiple'
 				variable.length = savVariable.length
-				variable.count = variable.length
-				variable.isSpread = False
-				variable.width = 1
+				variable.isSpread = savVariable.isSpread
+				if savVariable.isSpread:
+					variable.count = savVariable.count
+				else:
+					variable.count = variable.length
 			elif savVariable.type_ > 0:
 				variable.type = 'character'
 				if savVariable.extendedStringLength or savVariable.type_ == 255:
@@ -156,8 +276,6 @@ class SAVSchema (SchemaRepresentation):
 				else:
 					variable.min = absMin
 				variable.max = lengthMaxCode (codeLength (variable.max))
-			
-			variable.count = 1
 			
 			# self.schema.weightVariableSequence = variable.index
 			
@@ -253,14 +371,20 @@ if __name__ == "__main__":
 		print >>sys.stderr, logExceptionText (details)
 	
 	if len(sys.argv) < 2:
-		print "--Usage: savschema [-s] [-f] [-oOutputEncoding] SAV-file-name"
+		print "--Usage: savschema [options] SAV-file-name"
 		sys.exit(0)
 		
 	sensibleStringLengths = True
 	full = False
 	outputEncoding = "iso-8859-1"
 	ident = "A"
-	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:')
+	yesLabel = "Yes"
+	noLabel = "No"
+	suffixDelimiterText = ""
+	prefixDelimiterText = ":"
+	spreadMultipleAnswerList = "1st answer,2nd answer,3rd answer,4th answer,5th answer,6th answer,7th answer,8th answer"
+	
+	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:yna:b:m:')
 	for (option, value) in optlist:
 		if option == '-s':
 			sensibleStringLengths = False
@@ -270,7 +394,22 @@ if __name__ == "__main__":
 			outputEncoding = value
 		if option == '-i':
 			ident = value.upper ()
-			
+		if option == '-y':
+			yesLabel = value
+		if option == "-n":
+			noLabel = value
+		if option == "-b":
+			prefixDelimiterText = value.strip ()
+		if option == "-a":
+			suffixDelimiterText = value.strip ()
+		if option == "-m":
+			spreadMultipleAnswerList = value
+	
+	spreadMultipleAnswers = spreadMultipleAnswerList.split (",")
+	if len(spreadMultipleAnswers) < 2 or (len (prefixDelimiterText) > 0 and len (suffixDelimiterText) > 0):
+		print "--Usage: savschema [options] SAV-file-name"
+		sys.exit(0)
+				
 	(root, savExt) = os.path.splitext (args [0])
 	print "..Converting %s to %s.xml and %s.asc" %\
 		(args [0], root, root)
