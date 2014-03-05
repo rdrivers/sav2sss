@@ -23,7 +23,7 @@ setup(
       contact="Iain MacKay",
       options=options,
       contact_email="support@computable-functions.com",
-      description="savschema - import .sav data into triple-S",
+      description="savschema - import .sav data into Triple-S",
       name="sav2sss",
       zipfile=None,
-      version="0.2")
+      version="0.3")

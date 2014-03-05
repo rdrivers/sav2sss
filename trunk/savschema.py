@@ -173,6 +173,8 @@ class SAVSchema (SchemaRepresentation):
 						componentVariable.isDummy = True
 					initialVariable.isDummy = False
 					initialVariable.count = len (variableGroup)
+					initialVariable.label = initialVariable.label\
+						[:-len (spreadMultipleAnswers[0])]
 				else:
 					initialVariable.isSingleCategory = allAnswerListsSingleCategory\
 						(variableGroup [:-1], variableGroup [-1])
@@ -194,9 +196,10 @@ class SAVSchema (SchemaRepresentation):
 						if index > 0: componentVariable.isDummy = True
 					initialVariable.labelList = None
 					initialVariable.length = len (variableGroup)
-					initialVariable.label = initialVariable.label [:prefixLength]
+					if prefixLength > 0:
+						initialVariable.label = initialVariable.label [:prefixLength]
 					if suffixLength > 0:
-						initialVariable += initialVariable.label [-suffixLength:]
+						initialVariable.label += initialVariable.label [-suffixLength:]
 			else:
 				initialVariable.isMultiple = False
 				initialVariable.isSpread = False
@@ -355,7 +358,7 @@ if __name__ == "__main__":
 	import os.path
 	import getopt
 	import sssxmlschema
-	import metaschema
+	import datetime
 			
 	def logExceptionText (details=None):
 		import traceback
@@ -382,9 +385,16 @@ if __name__ == "__main__":
 	noLabel = "No"
 	suffixDelimiterText = ""
 	prefixDelimiterText = ":"
-	spreadMultipleAnswerList = "1st answer,2nd answer,3rd answer,4th answer,5th answer,6th answer,7th answer,8th answer"
+	spreadMultipleAnswerList = ":1st answer,:2nd answer,:3rd answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer"
+	version = 0.3
+	defaultMetadata = ("%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com);" %\
+		("", "", version)).split (";")
+	xmlMetadata = ""
+	showVersion = False
+	href = ""
+	titleText = ""
 	
-	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:yna:b:m:')
+	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:yna:b:m:x:h:t:')
 	for (option, value) in optlist:
 		if option == '-s':
 			sensibleStringLengths = False
@@ -393,7 +403,7 @@ if __name__ == "__main__":
 		if option == '-o':
 			outputEncoding = value
 		if option == '-i':
-			ident = value.upper ()
+			ident = value				
 		if option == '-y':
 			yesLabel = value
 		if option == "-n":
@@ -404,16 +414,62 @@ if __name__ == "__main__":
 			suffixDelimiterText = value.strip ()
 		if option == "-m":
 			spreadMultipleAnswerList = value
+		if option == "-x":
+			xmlMetadata = value
+		if option == "-v":
+			showVersion = True
+		if option == "-h":
+			href = value
+		if option == "-t":
+			titleText = value
+
+	nameTitle = titleText.split (";")
+	if len (nameTitle) == 1:
+		name = ""
+		title = nameTitle [0]
+	else:
+		name, title = nameTitle [:2]
+			
+	metadataFields = xmlMetadata.split (";")
+	if len (metadataFields) > 0 and len (metadataFields [0]):
+		sssDate = metadataFields [0]
+	else:
+		sssDate = defaultMetadata [0]
+	if len (metadataFields) > 1 and len (metadataFields [1]):
+		sssTime = metadataFields [1]
+	else:
+		sssTime = defaultMetadata [1]
+	if len (metadataFields) > 2 and len (metadataFields [2]):
+		sssOrigin = metadataFields [2]
+	else:
+		sssOrigin = defaultMetadata [2]
+	if len (metadataFields) > 3 and len (metadataFields [3]):
+		sssUser = metadataFields [3]
+	else:
+		sssUser = defaultMetadata [3]
 	
 	spreadMultipleAnswers = spreadMultipleAnswerList.split (",")
 	if len(spreadMultipleAnswers) < 2 or (len (prefixDelimiterText) > 0 and len (suffixDelimiterText) > 0):
 		print "--Usage: savschema [options] SAV-file-name"
-		sys.exit(0)
+		sys.exit (0)
+		
+	if len (ident) == 1 and ident.isalpha ():
+		ident = ident.upper ()
+	else:
+		print "--Invalid ident value: '%s'" % ident
+		sys.exit (0)
+				
+	if showVersion:
+		print "..sav2sss version %s" % version
 				
 	(root, savExt) = os.path.splitext (args [0])
 	print "..Converting %s to %s.xml and %s.asc" %\
 		(args [0], root, root)
-
+	if not href:
+		href = "%s.asc" % root
+	if href.strip ():
+		print "..href attribute will be '%s'" % href
+		
 	if len(args) == 1 and ident.isalpha () and len(ident) == 1:
 		try:
 			savData = savbinary.SAVDataset (args [0], sensibleStringLengths)
@@ -429,8 +485,22 @@ if __name__ == "__main__":
 					 len(savSchema.schema.variableSequence),
 					 len(savSchema.schema.answerListMap))
 				if full: savData.printMetadata (True)
-				newSchema = sssxmlschema.SSSXMLSchema().convert (savSchema.schema, "xx://yy")
-				newSchema.schema.name = ident
+				newSchema = sssxmlschema.SSSXMLSchema().convert (savSchema.schema, href)
+				if not sssDate and savData.creation_date:
+					sssDate = savData.creation_date
+				if not sssTime and savData.creation_time:
+					sssTime = savData.creation_time
+				if sssDate and sssDate.lower () == 'now':
+					sssDate = str(datetime.date.today ())
+				if sssTime and sssTime.lower () == 'now':
+					sssTime = str(datetime.datetime.now ().time ()) [:5]
+				newSchema.sssDate = sssDate
+				newSchema.sssTime = sssTime
+				newSchema.sssOrigin = sssOrigin
+				newSchema.sssUser = sssUser
+				newSchema.ident = ident
+				newSchema.schema.name = name
+				newSchema.schema.title = title
 				newSchema.allocate()
 				outputXMLFile = open (root + ".xml", 'w')
 				newSchema.save (outputXMLFile)

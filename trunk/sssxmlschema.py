@@ -36,6 +36,12 @@ class SSSXMLSchema (SchemaRepresentation):
 
 	def __init__ (self):
 		SchemaRepresentation.__init__ (self)
+		self.sssDate = None
+		self.sssTime = None
+		self.sssOrigin = None
+		self.sssUser = None
+		self.ident = "A"
+		self.href = None
 		
 	def load (self, name, doc):
 		#print "Loading SSSXMLSchema %s" % name
@@ -128,8 +134,7 @@ class SSSXMLSchema (SchemaRepresentation):
 			elif variable.type == "quantity":
 				maxValue = int(math.ceil(variable.max))
 				minValue = int(math.ceil(variable.min))
-				width = codeLength (maxValue)
-				if minValue < 0: width = width + 1
+				width = max (codeLength (maxValue), codeLength (minValue))
 				variable.finish = recordLength + width
 				if variable.dp > 0:
 					variable.finish += variable.dp + 1
@@ -147,12 +152,35 @@ class SSSXMLSchema (SchemaRepresentation):
 		self.recordLength = recordLength
 			
 	def save (self, file):
+		xmlDate = ""
+		if self.sssDate and self.sssDate.strip ():
+			xmlDate = "\n\t<date>%s</date>" % self.sssDate
+		xmlTime = ""
+		if self.sssTime and self.sssTime.strip ():
+			xmlTime = "\n\t<time>%s</time>" % self.sssTime
+		xmlOrigin= ""
+		if self.sssOrigin and self.sssOrigin.strip ():
+			xmlOrigin = "\n\t<origin>%s</origin>" % self.sssOrigin
+		xmlUser = ""
+		if self.sssUser and self.sssUser.strip ():
+			xmlUser = "\n\t<user>%s</user>" % self.sssUser
+		xmlName = ""
+		if self.schema.name:
+			xmlName = "\n\t\t<name>%s</name>" % forceEncoding(escape(self.schema.name))
+		xmlTitle = ""
+		if self.schema.title:
+			xmlTitle = "\n\t\t<title>%s</title>" % forceEncoding(escape(self.schema.title))
+		recordAttributes = " ident='%s'" % self.ident
+		if self.href.strip ():
+			recordAttributes += " href='%s'" % forceEncoding(escape(self.href.strip ()))
 		file.write ("""<?xml version="1.0" encoding="ISO-8859-1"?>
-<sss version="1.1">
-	<survey>
-		<title>%s</title>
-		<record ident=%s>\n""" %\
-			(forceEncoding(escape(self.schema.title)), quoteattr(self.schema.name)))
+<sss version="2.0">%s%s%s%s
+	<survey>%s%s
+		<record%s>\n""" %\
+			(xmlDate, xmlTime, xmlOrigin, xmlUser,
+			 xmlTitle,
+			 xmlName,
+			 recordAttributes))
 		for variable in self.schema.variableSequence:
 			# if variable.length is None: break
 			use = ""
@@ -190,18 +218,18 @@ class SSSXMLSchema (SchemaRepresentation):
 				file.write ("""				</values>\n""")
 			elif variable.type == 'quantity':
 				if variable.dp>0:
-					file.write ("""			 <values>
+					file.write ("""				<values>
 					<range from="%0*.*f" to="%0*.*f"/>
-												</values>\n""" %\
-													(variable.finish-variable.start+1, variable.dp, variable.min,
-													 variable.finish-variable.start+1, variable.dp, variable.max))
+				</values>\n""" %\
+						(variable.finish-variable.start+1, variable.dp, variable.min,
+						 variable.finish-variable.start+1, variable.dp, variable.max))
 				else:
-					file.write ("""			 <values>
+					file.write ("""			 	<values>
 					<range from="%d" to="%d"/>
 				</values>\n""" %\
-													(int(variable.min), int(variable.max)))
+						(int(variable.min), int(variable.max)))
 			elif variable.type == 'character':
-				file.write ("""			 <size>%s</size>\n""" %\
+				file.write ("""				<size>%s</size>\n""" %\
 					variable.length)
 			file.write ("""			</variable>\n""")
 		file.write ("""		</record>
@@ -430,7 +458,7 @@ class SSSDataset (Dataset):
 #		try:
 #			doc = libxml2.parseFile(sys.argv[1])
 #		except:
-#			logger.error ("Cannot load triple-s XML document")
+#			logger.error ("Cannot load Triple-S XML document")
 #			logger.logException()
 #		else: 
 #			try:

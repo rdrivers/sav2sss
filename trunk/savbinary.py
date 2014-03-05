@@ -289,7 +289,7 @@ class SAVDataset:
 				struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0] == 2 and\
 				struct.unpack(signedLongFormat, self.binData[self.offset+4:self.offset+8])[0]	 < 0:
 				self.offset += 4
-				dummyVariable = SAVVariable (self.binData, self.offset)
+				dummyVariable = SAVVariable (self, self.binData, self.offset)
 				dummyVariableCount += 1
 				self.offset += dummyVariable.SAVSize
 			newVariable.dummyVariables = dummyVariableCount
