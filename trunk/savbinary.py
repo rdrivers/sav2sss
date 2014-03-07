@@ -312,7 +312,8 @@ class SAVDataset:
 				if float (int (value)) != value:
 					raise SAVError, "Non-integer labelled value; %s: %s" % (value, label)
 				self.offset += (label_length+1+7)/8*8
-				if value > 0: labelList [int (value)] = label	# Require +ve integer codes (for triple-S)
+				# if value > 0: labelList [int (value)] = label	# Require +ve integer codes (for triple-S)
+				labelList [int (value)] = label	# 0 codes supported for triple-S level 2+
 			getRecordType ("4")
 			var_count = struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0]
 			self.offset += 4

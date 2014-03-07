@@ -40,6 +40,17 @@ def isYesNo (savVariable):
 	   	return True
 	return False
 		
+# See if variable has 0/1 answer list
+
+def is01 (savVariable):
+	if savVariable.labelList is None or\
+	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
+	       	return False
+	if 0 in savVariable.dataset.labelLists [savVariable.labelList].labels.keys () and\
+	   1 in savVariable.dataset.labelLists [savVariable.labelList].labels.keys ():
+	   	return True
+	return False
+		
 def findYesCode (savVariable):
 	if savVariable.labelList is None or\
 	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
@@ -86,23 +97,39 @@ def isPotentialSpread (vList, next):
 		if len (spreadMultipleAnswers) < len (vList) + 1:
 			raise SavSchemaError, "More spread responses than supplied answers: %s" %\
 				(structuredNameRoot (vList [0].name))
-		return next.label.find (spreadMultipleAnswers [len (vList)]) >= 0
+		value = next.label.find (spreadMultipleAnswers [len (vList)]) >= 0
 	else:
-		return False
+		value = False
+	# print "isPotentialSpread", value, vList [0], next
+	return value
 def allAnswerListsSingleCategory (vList, next):
-	return vList [0].length == 1 and next.length == 1
+	value = vList [0].length == 1 and next.length == 1
+	# print "allAnswerListsSingleCategory", value, vList [0], next
+	return value
 def allAnswerListsYesNo (vList, next):
-	return isYesNo (vList [0]) and isYesNo (next)
+	value = isYesNo (vList [0]) and isYesNo (next)
+	# print "allAnswerListsYesNo", value, vList [0], next
+	return value
+def allAnswerLists01 (vList, next):
+	value = is01 (vList [0]) and is01 (next)
+	# print "allAnswerLists01", value, vList [0], next
+	return value
 def allAnswerListsSame (vList, next):
-	return isSameAnswerList (vList [0], next)
+	value = isSameAnswerList (vList [0], next)
+	# print "allAnswerListsSame", value, vList [0], next
+	return value
 def commonPrefix (vList, next):
 	lastPrefix = getPrefix (next.label)
 	if len (lastPrefix) == 0: return False
 	for savVariable in vList:
 		thisPrefix = getPrefix (savVariable.label)
 		if thisPrefix != lastPrefix:
-			return False
-	return True
+			value = False
+	else:
+		value = True
+	# print "commonPrefix", value, vList [0], next
+	return value
+	
 		
 def commonSuffix (vList, next):
 	lastSuffix = getSuffix (next.label)
@@ -110,13 +137,17 @@ def commonSuffix (vList, next):
 	for savVariable in vList:
 		thisSuffix = getSuffix (savVariable.label)
 		if thisSuffix != lastSuffix:
-			return False
-	return len (firstSuffix) > 0 and firstSuffix == lastSuffix
+			value = False
+	else:
+		value = len (firstSuffix) > 0 and firstSuffix == lastSuffix
+	# print "commonSuffix", value, vList [0], next
+	return value
 
 def isSPSSBitstringMultiple (vList, next):
 	return isPotentialMultiple (vList, next) and\
 	   (allAnswerListsSingleCategory (vList, next) or
-	    allAnswerListsYesNo (vList, next)) and\
+	    allAnswerListsYesNo (vList, next) or
+	    allAnswerLists01 (vList, next)) and\
 	   (commonPrefix (vList, next) or commonSuffix (vList, next))
 
 def isSPSSSpreadMultiple (vList, next):
@@ -125,6 +156,7 @@ def isSPSSSpreadMultiple (vList, next):
 	       isPotentialSpread (vList, next)
 		
 def isSPSSMultiple (vList, next):
+	# print "isSPSSMultiple", vList [0], next
 	return isSPSSBitstringMultiple (vList, next) or\
 	       isSPSSSpreadMultiple (vList, next)
 
@@ -273,7 +305,7 @@ class SAVSchema (SchemaRepresentation):
 				else:
 					variable.min = min (savVariable.min, 0)
 				variable.max = max (savVariable.max, lengthMaxCode (width))
-				absMin = lengthMaxCode (codeLength (variable.min))
+				absMin = lengthMaxCode (codeLength (abs (variable.min)))
 				if variable.min < 0.0:
 					variable.min = -absMin
 				else:
