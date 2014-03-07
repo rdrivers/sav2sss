@@ -4,6 +4,7 @@ import libxml2Util
 from xml.sax.saxutils import escape, quoteattr
 from schema import *
 import re
+import math
 
 class SSSXMLError (exceptions.Exception): pass
 		
@@ -15,6 +16,13 @@ def invertMap (map):
 	
 len1Codes = ["%d" % i for i in xrange(0, 10)]
 len2Codes = ["%02d" % i for i in xrange(0, 100)]
+
+def magCeil (x):
+	if x >= 0.0:
+		return int (math.ceil (x))
+	if int (x) == x:
+		return int (x)
+	return int (math.ceil (x))-1
 
 def encodeBoolean (b):
 	if b: return '1'
@@ -132,22 +140,22 @@ class SSSXMLSchema (SchemaRepresentation):
 			elif variable.type == "logical":
 				variable.finish = variable.start
 			elif variable.type == "quantity":
-				maxValue = int(math.ceil(variable.max))
-				minValue = int(math.ceil(variable.min))
-				width = max (codeLength (maxValue), codeLength (minValue))
+				maxValue = magCeil (variable.max)
+				minValue = magCeil (variable.min)
+				width = max (codeLength (minValue), codeLength (maxValue))
 				variable.finish = recordLength + width
 				if variable.dp > 0:
 					variable.finish += variable.dp + 1
 			elif variable.type == "multiple":
 				if variable.isSpread:
-					variable.width = codeLength (variable.length)
+					variable.width = codeLength (variable.answerList.maxCode)
 					spreadSize = variable.count * variable.width
 					variable.finish = recordLength + spreadSize
 				else:
 					variable.width = 1
 					variable.finish = recordLength + variable.length
 			elif variable.type == "single":
-				variable.finish = recordLength + codeLength (variable.length)
+				variable.finish = recordLength + codeLength (variable.answerList.maxCode)
 			recordLength = variable.finish
 		self.recordLength = recordLength
 			

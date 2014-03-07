@@ -485,7 +485,7 @@ class AnswerList:
 		if self.simple:
 			return self.answerSequence [code-1].text
 		else:
-			return "#%s" % code
+			return self.findAnswerWithCode (code).text
 				
 class Answer:
 	def __init__ (self, answerList):
