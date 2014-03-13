@@ -1,5 +1,5 @@
 rem batch script to run setup.py with approprate options
-set version=savschema-0.3
+set version=savschema-0.4
 
 rem create initial distribution
 
@@ -10,5 +10,5 @@ rmdir .\build /s/q
 rmdir .\output /s/q
 mkdir .\output
 copy readme.html .\output\*
-move /y .\savschema-0.3\savschema.exe .\output\sav2sss.exe
-rmdir .\savschema-0.3 /s/q
+move /y .\savschema-0.4\savschema.exe .\output\sav2sss.exe
+rmdir .\savschema-0.4 /s/q

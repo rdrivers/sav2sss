@@ -87,10 +87,14 @@ def getSuffix (text):
 	
 # See if sequence of variables is potentially a multiple based on their names
 def isPotentialMultiple (vList, next):
-	return (structuredNameIndex (vList [0].name) == 1 or
+	value = (structuredNameIndex (vList [0].name) == 1 or
 		structuredNameIndex (vList [0].longName) == 1) and\
 	       (structuredNameIndex (next.name) == len (vList) + 1 or
-	        structuredNameIndex (next.longName) == len (vList) + 1)
+	        structuredNameIndex (next.longName) == len (vList) + 1) and\
+	        structuredNameRoot (vList [0].name) == structuredNameRoot (next.name)
+	# print "isPotentialMultiple", value, vList [0].name, structuredNameIndex (vList [0].name),\
+	#	next.name, structuredNameIndex (next.name)
+	return value
 # See if sequence of variables looks like a spread format multiple (and not a grid)	
 def isPotentialSpread (vList, next):
 	if vList [0].label.find (spreadMultipleAnswers [0]) >= 0:
@@ -139,7 +143,7 @@ def commonSuffix (vList, next):
 		if thisSuffix != lastSuffix:
 			value = False
 	else:
-		value = len (firstSuffix) > 0 and firstSuffix == lastSuffix
+		value = True
 	# print "commonSuffix", value, vList [0], next
 	return value
 
@@ -411,16 +415,16 @@ if __name__ == "__main__":
 		
 	sensibleStringLengths = True
 	full = False
-	outputEncoding = "iso-8859-1"
+	outputEncoding = "cp1252"
 	ident = "A"
 	yesLabel = "Yes"
 	noLabel = "No"
 	suffixDelimiterText = ""
 	prefixDelimiterText = ":"
 	spreadMultipleAnswerList = ":1st answer,:2nd answer,:3rd answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer"
-	version = 0.3
-	defaultMetadata = ("%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com);" %\
-		("", "", version)).split (";")
+	version = 0.4
+	defaultMetadata = (";%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com)" %\
+		("now", "now", version)).split (";")
 	xmlMetadata = ""
 	showVersion = False
 	href = ""
@@ -464,24 +468,24 @@ if __name__ == "__main__":
 			
 	metadataFields = xmlMetadata.split (";")
 	if len (metadataFields) > 0 and len (metadataFields [0]):
-		sssDate = metadataFields [0]
+		sssUser = metadataFields [0]
 	else:
-		sssDate = defaultMetadata [0]
+		sssUser = defaultMetadata [0]
 	if len (metadataFields) > 1 and len (metadataFields [1]):
-		sssTime = metadataFields [1]
+		sssDate = metadataFields [1]
 	else:
-		sssTime = defaultMetadata [1]
+		sssDate = defaultMetadata [1]
 	if len (metadataFields) > 2 and len (metadataFields [2]):
-		sssOrigin = metadataFields [2]
+		sssTime = metadataFields [2]
 	else:
-		sssOrigin = defaultMetadata [2]
+		sssTime = defaultMetadata [2]
 	if len (metadataFields) > 3 and len (metadataFields [3]):
-		sssUser = metadataFields [3]
+		sssOrigin = metadataFields [3]
 	else:
-		sssUser = defaultMetadata [3]
+		sssOrigin = defaultMetadata [3]
 	
 	spreadMultipleAnswers = spreadMultipleAnswerList.split (",")
-	if len(spreadMultipleAnswers) < 2 or (len (prefixDelimiterText) > 0 and len (suffixDelimiterText) > 0):
+	if len(spreadMultipleAnswers) < 2 or (len (prefixDelimiterText) > 0 and len(suffixDelimiterText) > 0):
 		print "--Usage: savschema [options] SAV-file-name"
 		sys.exit (0)
 		
@@ -518,9 +522,9 @@ if __name__ == "__main__":
 					 len(savSchema.schema.answerListMap))
 				if full: savData.printMetadata (True)
 				newSchema = sssxmlschema.SSSXMLSchema().convert (savSchema.schema, href)
-				if not sssDate and savData.creation_date:
+				if not sssDate.strip () and savData.creation_date:
 					sssDate = savData.creation_date
-				if not sssTime and savData.creation_time:
+				if not sssTime.strip () and savData.creation_time:
 					sssTime = savData.creation_time
 				if sssDate and sssDate.lower () == 'now':
 					sssDate = str(datetime.date.today ())
