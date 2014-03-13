@@ -450,11 +450,24 @@ class SAVDataset:
 		self.creation_date = self.convertText (self.creation_date)
 		self.creation_time = self.convertText (self.creation_time)
 		self.prod_name = self.convertText (self.prod_name)
+		
 
 		for i, variable in enumerate (self.variables):
 			variable.name = self.convertText (variable.name)
 			variable.label = self.convertText (variable.label)
 			variable.longName = self.convertText (variable.longName)
+
+		# Now we know the longNames, let's use them as the variable names
+		
+		# Variables now may have two entries in the variable map
+		for i, variable in enumerate (self.variables):
+			if variable.longName and variable.longName != variable.name:
+				if self.variableMap.has_key (variable.longName):
+				  raise SAVError, "Long name '%s' for '%s' conflicts with existing short name" %\
+				  	(variable.longName, variable.name)
+				else:
+					variable.name = variable.longName
+					self.variableMap [variable.name] = variable
 			
 		for list_ in self.labelLists:
 			for value, label in list_.labels.items ():

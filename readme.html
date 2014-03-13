@@ -46,7 +46,7 @@ Visual C 2008 runtime DLLs</a>.</p>
     long string variable lengths. By default each long string variable is
     reduced to a length no greater than the next power of 2 greater than the
     maximum size found in the file.</li>
-  <li>The -f switch enables "full" output that includes: 
+  <li>The -f switch enables "full" output that includes:
     <ul>
       <li>A description of the information about each variable found in the
       file</li>
@@ -62,53 +62,52 @@ Visual C 2008 runtime DLLs</a>.</p>
   A.</li>
   <li>The -y switch specifies the label used for Yes answers (default Yes)</li>
   <li>The -n switch specifies the label used for No answers (default No)</li>
-  <li>The -a switch specifies the delimiter between an varying prefix and an
+  <li>The -a switch specifies the delimiter between a varying prefix and an
     unvarying suffix in labels of component variables of multiples. If there
     are no variables composed in this way in the file, use a blank. Default is
     blank, i.e. "-a "; <em>note that if a switch value contains blanks it and
     its value should be enclosed in quotes</em>.</li>
-  <li>The -b switch specifies the delimiter between an unvarying prefix and an
+  <li>The -b switch specifies the delimiter between an unvarying prefix and a
     varying suffix in labels of component variables of multiples. If there are
     no variables composed in this way in the file, use a blank. Default is
-    colon, i.e.. -a:</li>
+    colon, i.e.. -b:</li>
   <li>The -m switch specifies the answer labels used for 1st answer, 2nd answer
     etctera in spread multiples. The default is "-m:1st answer,:2nd answer,:3rd
     answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer". This
     allows spread multiple variables to be distinguised from grids. Specify as
     many answers as there may be responses to any of the spread multiples in
     the .sav file.</li>
-  <li>The -x switch specifies the values to be used for the &lt;time&gt;,
-    &lt;date&gt;, &lt;origin&gt; and &lt;user&gt; elements in the output XML.
-    The values should be given in order and separated by semi-colons, e.g. 
-    <pre>"-x2013-25-01;00:00;;Santa Claus"</pre>
-    to specify an explicit time and date, default origin, and explicit user.
+  <li>The -x switch can be used to specify the value of the 'user' element in
+    the XML file. The value should not contain a semicolon (';') character.
     Note that switches whose values contain spaces should be enclosed in double
-    quotes in the command line as shown. The user element does not appear by
-    default and the default origin is 
-    <pre>SAV2SSS {version} (Windows) by Computable Functions (http://www.computable-functions.com)</pre>
-    The time and date default to the creation time and date in the .sav file,
-    and are omitted if not present in the .sav file. Use the value 'now' to
-    specify inserting the time of the sav2sss run. Use a blank for any of the
-    values to exclude the default value, e.g. 
-    <pre>"-x;now; ;Wotan"</pre>
-    will use the creation date from the .sav file, the current time, exclude
-    the origin element and specify Wotan as the user. </li>
+    quotes in the command line as shown above. The user element does not
+    appear by default.  </li>
   <li>The -h switch is used to specify an href attribute for the &lt;record&gt;
     element. By default sav2sss includes an href which is a relative reference
-    to the .asc file. To exclude the href use 
+    to the .asc file. To exclude the href use
     <pre>"-h "</pre>
   </li>
   <li>The -t switch is used to specify contents of either of the &lt;name&gt;
     and &lt;title&gt; elements in the XML. Separate the name and title by a
     semicolon. There is no default name or title. If there is no semicolon the
-    whole value is used as the title. E.g. 
+    whole value is used as the title. E.g.
     <pre>"-tOmnibus201401:January 2014 Omnibus survey"</pre>
-    Name is 'Omnibus201401' and title is 'January 2014 Omnibus survey' 
+    Name is 'Omnibus201401' and title is 'January 2014 Omnibus survey'
     <pre>"-tJanuary 2014 Omnibus survey"</pre>
     No name, and title is 'January 2014 Omnibus survey' </li>
 </ul>
 
-<p></p>
+<h4>Metadata</h4>
+
+<p>The contents of the &lt;user&gt; element may be controlled by the -x
+parameter as described above. Otherwise:</p>
+<ul>
+  <li>The &lt;date&gt; element shows the date of the SAV2SSS run</li>
+  <li>The &lt;time&gt; element shows the time of day of the SAV2SSS run</li>
+  <li>The &lt;origin&gt; element contains
+    <pre>SAV2SSS {version} (Windows) by Computable Functions (http://www.computable-functions.com)</pre>
+  </li>
+</ul>
 
 <h4>Character encodings</h4>
 
@@ -120,7 +119,9 @@ standard library</a> may be used as the data encoding. Characters from the sav
 file that are not representable in the specified data encoding are rendered in
 the data file as ?. The XML is always written in encoding ISO-8859-1, so all
 Unicode characters are representable, and the XML file should be easily viewed
-and edited on Windows machines.</p>
+and edited on Windows machines. The data file is written by default with
+encoding CP1252; this is a superset of ISO-8859-1 that is almost universally
+recognised.</p>
 
 <h2>Multiple categorical variables</h2>
 
@@ -140,7 +141,7 @@ regular variables, identifiable as follows:</p>
 <ul>
   <li>each variable has a title comprised of the underlying multiple variable
     title with the answer label of the corresponding category</li>
-  <li>each variable has an answer list containing either: 
+  <li>each variable has an answer list containing either:
     <ul>
       <li>exactly two answers coded as zero (answer not applicable) or one
         (answer applicable)</li>
