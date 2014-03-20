@@ -93,8 +93,10 @@ def blankNone (t):
 	return ""
 	
 def alternativeText (t, alternative):
-	if t == alternative: return t
-	return "%s (%s)" % (t, alternative)
+	if t == alternative: value = t
+	else:
+		value = "%s (%s)" % (t, alternative)
+	return unicode (value).encode ("cp1252", "replace")
 
 class SAVError (exceptions.Exception): pass
 
@@ -120,9 +122,10 @@ class SPSSOutputFormat:
 		return "Format #%s %s.%s" % (self.format_type_code, self.width, self.dp)
 
 class SPSSLabelList:
-	def __init__ (self, labels, variablesApplicable):
+	def __init__ (self, labels, variablesApplicable, nonInteger):
 		self.labels = labels
 		self.variablesApplicable = variablesApplicable
+		self.nonInteger = nonInteger
 				
 class SAVVariable:
 	def __init__ (self, dataset, data, offset):
@@ -145,6 +148,7 @@ class SAVVariable:
 			self.SAVSize += n
 			return value
 		def nextNFloat (n=1, adjust=False):
+			# print "nextNFloat", n, adjust, self.SAVSize, offset
 			values = [unpackFloat (data[offset + i:offset + i + 8])\
 				for i in xrange (self.SAVSize, self.SAVSize + 8*n, 8)]
 			#values = struct.unpack ('%s%dd' % (endianityChar, n),
@@ -161,10 +165,11 @@ class SAVVariable:
 		self.SAVSize = 0
 		self.type_ = nextInt32 (True)
 		self.has_var_label = nextInt32 ()
-		self.n_missing_values = nextInt32 ()
+		self.n_missing_values = nextInt32 (True)
 		self.print_ = SPSSOutputFormat (nextNBytes (4))
 		self.write_ = SPSSOutputFormat (nextNBytes (4))
 		self.name = nextN (8).strip ()	# Won't strip correctly except for ASCII variants
+		# print "New variable name", self.name
 		# has to be stripped now to match with long-name entries.
 		if self.has_var_label:
 			self.label_len = nextInt32 ()
@@ -183,8 +188,7 @@ class SAVVariable:
 		self.measure = None
 		self.width = None
 		self.alignment = None
-		self.fullPosition = None
-		
+		self.fullPosition = None		
 		
 	def isValidMissingValue (self, value):
 		if self.n_missing_values == 0: return False
@@ -197,7 +201,17 @@ class SAVVariable:
 		if self.n_missing_values == -3:
 			return (value >= self.missing_values [0] and
 			       value <= self.missing_values [1]) or\
-			       value == self.missing_values [2]		
+			       value == self.missing_values [2]
+			       
+	def sensibleLabelCount (self):
+		sensibleCount = 0
+		if self.labelList is not None:
+			labelList = self.dataset.labelLists [self.labelList]
+			if not labelList.nonInteger:
+				for code in labelList.labels.keys ():
+					if not self.isValidMissingValue (code) and code >= 0:
+					   sensibleCount += 1
+		return sensibleCount
 		
 	def __str__ (self):
 		if self.n_missing_values > 0:
@@ -222,9 +236,11 @@ class SAVDataset:
 		self.character_code = 3
 		self.encoding = "ISO-8859-1"
 		self.sysmis = 0
+		self.n_lines = 0
 	
 		def getRecordType (required=None):
 			return_type = None
+			# print "getRecordType", self.offset, len (self.binData)
 			if self.offset + 4 <= len (self.binData):
 				record_type = struct.unpack(longFormat,
 					self.binData[self.offset: self.offset+4])[0]
@@ -239,11 +255,11 @@ class SAVDataset:
 					raise SAVError, "Record type '%s' required at self.offset %d (X%x)" %\
 					(required, self.offset, self.offset)
 				self.offset += 4
+				# print "Returning type: %s" % return_type
 				return return_type
 			if required is not None:
 				raise SAVError, "Unexpected EOF looking for %s at self.offset %d (X%x)" %\
 					(required, self.offset, self.offset)
-			# print "..Found record type %s at offset %d" % (returnType, offset)
 					
 		binFile = open(SAVFilename, 'rb')
 		self.binData = binFile.read()
@@ -298,22 +314,32 @@ class SAVDataset:
 			self.fullVariableMap [self.totalVariables] = len (self.variables)
 			self.variables.append (newVariable)
 			self.totalVariables += newVariable.dummyVariables + 1
+			# print "Variable", self.totalVariables, newVariable.name, newVariable.dummyVariables
 		
 		self.labelLists = []
 		while rec_type == '3':
 			labelList = {}
 			label_count = struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0]
 			self.offset += 4
+			nonInteger = False
 			for i in xrange (label_count):
 				value = struct.unpack(floatFormat, self.binData [self.offset: self.offset + 8])[0]
 				self.offset += 8
 				label_length = struct.unpack ('%sb' % endianityChar, self.binData [self.offset: self.offset + 1]) [0]
 				label = self.binData [self.offset+1: self.offset+1+label_length]
 				if float (int (value)) != value:
-					raise SAVError, "Non-integer labelled value; %s: %s" % (value, label)
+					# raise SAVError, "Non-integer labelled value; %s: %s" % (value, label)
+					print "--Non-integer labelled value; %s: %s" % (value, label)
+					nonInteger = True
 				self.offset += (label_length+1+7)/8*8
 				# if value > 0: labelList [int (value)] = label	# Require +ve integer codes (for triple-S)
-				labelList [int (value)] = label	# 0 codes supported for triple-S level 2+
+				if nonInteger:
+					labelList [value] = label
+				else:
+					if labelList.has_key (int (value)):
+						print "--Duplicated rounded code value: %s (%d) for label '%s'" %\
+							(value, int (value), label)
+					labelList [int (value)] = label	# 0 codes supported for triple-S level 2+
 			getRecordType ("4")
 			var_count = struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0]
 			self.offset += 4
@@ -323,7 +349,7 @@ class SAVDataset:
 			for variableIndex in applicableVariables:
 				variable = self.variables [self.fullVariableMap [variableIndex-1]]
 				variable.labelList = len (self.labelLists)
-			self.labelLists.append (SPSSLabelList (labelList, applicableVariables))
+			self.labelLists.append (SPSSLabelList (labelList, applicableVariables, nonInteger))
 			rec_type = getRecordType ()
 			
 		while rec_type is not None:
@@ -331,8 +357,8 @@ class SAVDataset:
 				self.n_lines = struct.unpack(longFormat, self.binData[self.offset:self.offset+4])[0]
 				self.offset  += 4
 				self.lines = [self.binData[self.offset:self.offset+80]
-					for self.offset in xrange (self.offset, self.offset+80*self.n_lines, 80)]
-				#print self.lines
+					for self.offset in xrange (self.offset, self.offset+80*(self.n_lines+1), 80)]
+				# print "Document record", self.n_lines, self.lines
 			
 			elif rec_type == "7.3":
 				self.floating_point_rep = struct.unpack(longFormat, self.binData[self.offset+24:self.offset+28])[0]
@@ -479,6 +505,18 @@ class SAVDataset:
 			(self.offset, self.offset, self.dataSize)
 
 		self.sizeVariables ()
+		
+		for i, variable in enumerate (self.variables):
+			if variable.labelList is not None:
+				labelDictionary = self.labelLists [variable.labelList].labels
+				for key in variable.valueDistribution:
+					if not labelDictionary.has_key (key):
+						#print "--No label for value %s of variable %s, list size: %d" %\
+						#	(key, variable.name, len (labelDictionary))
+						variable.partialCoding = True
+						break
+				else:
+					variable.partialCoding = False
 	
 	def getCaseStream (self, errorTreatment="ignore"):
 		errorTreatment = errorTreatment.lower ()
@@ -607,10 +645,9 @@ class SAVDataset:
 		if verbose:
 			for i, variable in enumerate (self.variables):
 				if not variable.isDummy:\
-					print "Variable %d (%s): %s" % (i, variable.fullPosition+1,
-						unicode(variable).encode ('ascii', 'replace'))
+					print "Variable %d (%s): %s" % (i, variable.fullPosition+1, variable)
 			for i, l in enumerate (self.labelLists):
-				print "List: %d" % i, l.labels, l.variablesApplicable
+				print "List: %d" % i, l.labels, l.variablesApplicable# , l.nonInteger
 
 	
 	def _getDataItemStream (self):
@@ -717,6 +754,7 @@ class SAVDataset:
 			
 	def sizeVariables (self):
 		for variable in self.variables:
+			variable.valueDistribution = {}
 			if not variable.isDummy:
 				variable.maxActualLength = 0
 				if variable.type_ == 0:
@@ -728,6 +766,10 @@ class SAVDataset:
 			for (sequence, value) in case:
 				if value is None: continue
 				variable = self.variables [sequence]
+				if variable.valueDistribution.has_key (value):
+					variable.valueDistribution [value] += 1
+				else:
+					variable.valueDistribution [value] = 1
 				if variable.extendedStringLength or variable.type_ == 255:
 					thisLength = len (value.rstrip ())
 					variable.maxActualLength =\
@@ -735,7 +777,7 @@ class SAVDataset:
 				if variable.type_ == 0:
 					variable.min = min (variable.min, value)
 					variable.max = max (variable.max, value)
-					variable.max = 0
+					# variable.max = 0
 		for variable in self.variables:
 			if not variable.isDummy:
 				if variable.extendedStringLength or variable.type_ == 255:

@@ -471,6 +471,8 @@ class AnswerList:
 	def findAnswerWithCode (self, code):
 		for answer in self.answers():
 			if answer.code == code: return answer
+		#print "Can't find answer with code '%s' in list '%s'" %\
+		#	(code, self.name)
 					
 	def isSimpleList (self):
 		return self.simple
@@ -485,7 +487,11 @@ class AnswerList:
 		if self.simple:
 			return self.answerSequence [code-1].text
 		else:
-			return self.findAnswerWithCode (code).text
+			answer = self.findAnswerWithCode (code)
+			if answer is None:
+				return str ( int(code) )
+			else:
+				return answer.text
 				
 class Answer:
 	def __init__ (self, answerList):
