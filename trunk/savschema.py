@@ -188,7 +188,10 @@ class SAVSchema (SchemaRepresentation):
 		multipleCount = 0
 		for variableGroup in revisedVariables:
 			initialVariable = variableGroup [0]
-			if len (variableGroup) <> 1:
+			maybeSpread = len (variableGroup) <> 1 and isSPSSSpreadMultiple\
+					(variableGroup [:-1], variableGroup [-1])
+			if len (variableGroup) <> 1 and\
+				((not maybeSpread) or initialVariable.sensibleLabelCount () > 1):
 				multipleCount = multipleCount + 1
 				print "..SPSS-style multiple found: %s (%d categories)" %\
 					(structuredNameRoot (variableGroup [0].name), len(variableGroup))
@@ -202,8 +205,7 @@ class SAVSchema (SchemaRepresentation):
 					suffixLength = 0
 				
 				initialVariable.isMultiple = True
-				initialVariable.isSpread = isSPSSSpreadMultiple\
-					(variableGroup [:-1], variableGroup [-1])
+				initialVariable.isSpread = maybeSpread
 				if initialVariable.isSpread:
 					for index, componentVariable in enumerate (variableGroup):
 						componentVariable.isDummy = True
@@ -254,9 +256,13 @@ class SAVSchema (SchemaRepresentation):
 				labelList = savDataset.labelLists [savVariable.labelList]
 				codes = [key for key in labelList.labels.keys ()]
 				codes.sort ()
-				for code in codes:
-					Answer (answerList).makeNew\
-						(None, code, labelList.labels [code])
+				if savVariable.sensibleLabelCount () > 1:
+					for code in codes:
+						if code >= 0 and\
+							(savVariable.n_missing_values == 0 or\
+							 not savVariable.isValidMissingValue (code)):
+							Answer (answerList).makeNew\
+								(None, code, labelList.labels [code])
 			elif savVariable.labels is not None:
 				answerList = AnswerList (self.schema, name)
 				for index, label in enumerate (savVariable.labels):
@@ -264,6 +270,12 @@ class SAVSchema (SchemaRepresentation):
 						(None, index+1, label)
 			else:
 				answerList = None
+			if answerList:
+				answerCount = sum ((1 for answer in answerList.answers ()))
+			#if answerList and answerCount < 2:
+			#	print "--Answer list for %s has only %d value(s) not listed as missing" %\
+			#		(savVariable.name, answerCount)
+			#	answerList = None
 				
 			variable = Variable (self.schema, name, answerList)
 			variable.translatable = False
@@ -274,7 +286,9 @@ class SAVSchema (SchemaRepresentation):
 				variable.ttext = savVariable.label
 				variable.qtext = savVariable.longName
 			variable.count = 1
-			if savVariable.labelList is not None and not savVariable.isSpread:
+			if savVariable.labelList is not None and answerList and not savVariable.isSpread and\
+				not savVariable.partialCoding and answerCount > 1:
+				# not savVariable.max > answerList.maxCode:
 				variable.type = 'single'
 				variable.length = answerList.maxCode
 			elif savVariable.isMultiple:
@@ -303,7 +317,10 @@ class SAVSchema (SchemaRepresentation):
 					variable.translatable = True
 				variable.dp = savVariable.write_.dp
 				width = min (24, savVariable.write_.width)
-				if variable.dp > 0: width = max (1, width - (variable.dp + 1))
+				if variable.dp > 0:
+					#print "..Variable %s has %d decimal place(s)" %\
+					#	(variable.name, variable.dp)
+					width = max (1, width - (variable.dp + 1))
 				if width > 1:
 					variable.min = min (savVariable.min, -lengthMaxCode (width-1))
 				else:
@@ -312,10 +329,10 @@ class SAVSchema (SchemaRepresentation):
 				absMin = lengthMaxCode (codeLength (abs (variable.min)))
 				if variable.min < 0.0:
 					variable.min = -absMin
-				else:
-					variable.min = absMin
 				variable.max = lengthMaxCode (codeLength (variable.max))
+				# print "quantity", variable.name, variable.min, variable.max
 			
+			# print variable.name, savVariable.min, savVariable.max
 			# self.schema.weightVariableSequence = variable.index
 			
 class SAVVariableValue (VariableValue):
@@ -429,9 +446,15 @@ if __name__ == "__main__":
 	showVersion = False
 	href = ""
 	titleText = ""
+	csv = False
+	multipleDelimiter = ""
 	
-	optlist, args = getopt.getopt(sys.argv[1:], 'vsfo:i:yna:b:m:x:h:t:')
+	optlist, args = getopt.getopt(sys.argv[1:], 'cvsfo:i:y:n:a:b:m:x:h:t:d:')
 	for (option, value) in optlist:
+		if option == '-c':
+			csv = True
+		if option == '-d':
+			multipleDelimiter = value
 		if option == '-s':
 			sensibleStringLengths = False
 		if option == '-f':
@@ -498,11 +521,17 @@ if __name__ == "__main__":
 	if showVersion:
 		print "..sav2sss version %s" % version
 				
+	if csv:
+		format = 'csv'
+		extension = '.csv'
+	else:
+		format = 'asc'
+		extension = '.asc'
 	(root, savExt) = os.path.splitext (args [0])
-	print "..Converting %s to %s.xml and %s.asc" %\
-		(args [0], root, root)
+	print "..Converting %s to %s.xml and %s%s" %\
+		(args [0], root, root, extension)
 	if not href:
-		href = "%s.asc" % root
+		href = "%s%s" % (root, extension)
 	if href.strip ():
 		print "..href attribute will be '%s'" % href
 		
@@ -520,6 +549,13 @@ if __name__ == "__main__":
 					(args[0],
 					 len(savSchema.schema.variableSequence),
 					 len(savSchema.schema.answerListMap))
+				if savData.n_lines:
+					documentFile = open (root + ".txt", 'w')
+					for i in xrange (savData.n_lines):
+						print >>documentFile, forceEncoding (savData.lines [i], outputEncoding).strip ()
+					documentFile.close ()
+					print "..%d line(s) for documentation written to %s.txt" %\
+						(savData.n_lines, root) 
 				if full: savData.printMetadata (True)
 				newSchema = sssxmlschema.SSSXMLSchema().convert (savSchema.schema, href)
 				if not sssDate.strip () and savData.creation_date:
@@ -539,14 +575,15 @@ if __name__ == "__main__":
 				newSchema.schema.title = title
 				newSchema.allocate()
 				outputXMLFile = open (root + ".xml", 'w')
-				newSchema.save (outputXMLFile)
+				newSchema.save (outputXMLFile, format=format)
 				outputXMLFile.close ()
-				SSSDataset = sssxmlschema.SSSDataset (newSchema, root + '.asc', False, outputEncoding)
+				SSSDataset = sssxmlschema.SSSDataset (newSchema, root + extension, False, outputEncoding,
+					format, multipleDelimiter)
 				savDataset = SAVDataset (savSchema, savData)
 				savDataset.convert (SSSDataset)
 				print "..%d case(s) recovered from proprietary format" % savDataset.recordNumber
-				distributions = SSSDataset.getDistributions ()
-				if full:
+				if full and not csv:
+					distributions = SSSDataset.getDistributions ()
 					for vv, distribution in distributions:
 						itemCount = len (distribution)
 						others = 0

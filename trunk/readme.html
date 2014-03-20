@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.3</h1>
+<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.5</h1>
 
 <p>The sav2sss utility converts an SPSS® .sav file to Triple-S XML metadata and
 data.</p>
@@ -23,6 +23,16 @@ cannot be warranted in any way.</p>
 distribution of data values, which may be checked against known totals for the
 dataset.</p>
 
+<p>sav2sss produces up to three output files. They are named after the input
+file, with different extensions:</p>
+<ul>
+  <li>XML schema file: <em>sav-file-name</em>.xml</li>
+  <li>Data file: <em>sav-file-name</em>.asc (fixed-format mode) or .csv (CSV
+    mode)</li>
+  <li>Documentation file: <em>sav-file-name</em>.txt - <em>only if the .sav
+    file contains documentation text</em></li>
+</ul>
+
 <h2>Installation on Windows</h2>
 
 <p>Download the sav2sss executable into a folder of your own choice, let's say
@@ -36,17 +46,17 @@ Visual C 2008 runtime DLLs</a>.</p>
 <h2>Running sav2sss</h2>
 
 <p>sav2sss must be executed from a command prompt:</p>
-<pre>&lt;some-folder&gt;\sav2sss [-ooutputEncoding] [-v] [-s] [-f] [-iIdent] [-yYes] [-nNo] -a[delimiter] [-bdelimiter] [-mAnswers...] SAV-file</pre>
+<pre>&lt;some-folder&gt;\sav2sss [-ooutputEncoding] [switches] SAV-file</pre>
 
-<p>Switches:</p>
+<p>Switches taking no value:</p>
 <ul>
   <li>The -v switch if specified displays the savschema version number.</li>
   <li>The -s switch disables "sensible string lengths". This is a default
     option useful for data sets coming from Quancept ® which may have extremely
     long string variable lengths. By default each long string variable is
     reduced to a length no greater than the next power of 2 greater than the
-    maximum size found in the file.</li>
-  <li>The -f switch enables "full" output that includes:
+    maximum size found in the file for that variable.</li>
+  <li>The -f switch enables "full" output that includes: 
     <ul>
       <li>A description of the information about each variable found in the
       file</li>
@@ -54,8 +64,16 @@ Visual C 2008 runtime DLLs</a>.</p>
       <li>A frequency distribution for the variables in the file</li>
     </ul>
   </li>
+  <li>The -c switch specifies the output file should be a comma-separated
+  file.</li>
+</ul>
+
+<p>Switches requiring a value. NB: values are terminated by the next space or
+hyphen. <em>To include a space or hypen in a value, enclose the switch and
+value in double quotes, e.g. "-tMy title"</em></p>
+<ul>
   <li>The -o switch specifies the encoding to be used in the output data file,
-    by default iso-8859-1 (which should be fine for English-speaking Windows
+    by default cp-1252 (which should be fine for English-speaking Windows
     users).</li>
   <li>The -i switch may be used to specify the record Ident for the Triple-S
     specification; it should be a single Latin character A-Z. The default is
@@ -65,8 +83,7 @@ Visual C 2008 runtime DLLs</a>.</p>
   <li>The -a switch specifies the delimiter between a varying prefix and an
     unvarying suffix in labels of component variables of multiples. If there
     are no variables composed in this way in the file, use a blank. Default is
-    blank, i.e. "-a "; <em>note that if a switch value contains blanks it and
-    its value should be enclosed in quotes</em>.</li>
+    blank, i.e. "-a "; <em>note that quotes are required</em>.</li>
   <li>The -b switch specifies the delimiter between an unvarying prefix and a
     varying suffix in labels of component variables of multiples. If there are
     no variables composed in this way in the file, use a blank. Default is
@@ -80,36 +97,39 @@ Visual C 2008 runtime DLLs</a>.</p>
   <li>The -x switch can be used to specify the value of the 'user' element in
     the XML file. The value should not contain a semicolon (';') character.
     Note that switches whose values contain spaces should be enclosed in double
-    quotes in the command line as shown above. The user element does not
-    appear by default.  </li>
+    quotes in the command line as shown above. The user element does not appear
+    by default. </li>
   <li>The -h switch is used to specify an href attribute for the &lt;record&gt;
     element. By default sav2sss includes an href which is a relative reference
-    to the .asc file. To exclude the href use
+    to the .asc file. To exclude the href use 
     <pre>"-h "</pre>
   </li>
   <li>The -t switch is used to specify contents of either of the &lt;name&gt;
     and &lt;title&gt; elements in the XML. Separate the name and title by a
     semicolon. There is no default name or title. If there is no semicolon the
-    whole value is used as the title. E.g.
+    whole value is used as the title. E.g. 
     <pre>"-tOmnibus201401:January 2014 Omnibus survey"</pre>
-    Name is 'Omnibus201401' and title is 'January 2014 Omnibus survey'
+    <p>Name is 'Omnibus201401' and title is 'January 2014 Omnibus survey' </p>
     <pre>"-tJanuary 2014 Omnibus survey"</pre>
-    No name, and title is 'January 2014 Omnibus survey' </li>
+    <p>No name, and title is 'January 2014 Omnibus survey' </p>
+  </li>
+  <li>The -d switch is used to trigger interpreted CSV mode (see below) and
+    specify a delimiter for multiple values in the output file.</li>
 </ul>
 
-<h4>Metadata</h4>
+<h2>Metadata</h2>
 
 <p>The contents of the &lt;user&gt; element may be controlled by the -x
 parameter as described above. Otherwise:</p>
 <ul>
   <li>The &lt;date&gt; element shows the date of the SAV2SSS run</li>
   <li>The &lt;time&gt; element shows the time of day of the SAV2SSS run</li>
-  <li>The &lt;origin&gt; element contains
+  <li>The &lt;origin&gt; element contains 
     <pre>SAV2SSS {version} (Windows) by Computable Functions (http://www.computable-functions.com)</pre>
   </li>
 </ul>
 
-<h4>Character encodings</h4>
+<h2>Character encodings</h2>
 
 <p>Sav files have the ability to store text in several different encodings
 internally. This should be retrieved correctly by sav2sss but it has not been
@@ -122,6 +142,29 @@ Unicode characters are representable, and the XML file should be easily viewed
 and edited on Windows machines. The data file is written by default with
 encoding CP1252; this is a superset of ISO-8859-1 that is almost universally
 recognised.</p>
+
+<h2>Missing values</h2>
+
+<p>A .sav file may declare certain values for a variable to be missing values.
+Triple-S represents missing values with a blank field, so sav2sss outputs all
+missing values as blanks. The output generated by the -f switch shows which
+values have been treated in this way. The codes for missing values are not
+included in the XML file (these codes never appear in the data).</p>
+
+<h2>Anomalous code values</h2>
+
+<p>SPSS allows all variables including numerics to have codes for missing
+values. It also allows categorical variables to be incompletely coded, and have
+negative code values. This is not compatible with the requirements for
+categorical variables in Triple-S. Therefore variables are only treated as
+categorical, i.e. single or multiple, if all the values appearing in the file
+have been coded, and only valid codes (zero or higher integer) are used, except
+for missing values which may have any code because they are not written to the
+output file. A variable must have at least two categories after excluding
+missing values and invalid codes in order to be treated as categorical.
+Variables rejected on the basis of these criteria are converted as Triple-S
+quantity variables with a range based on the width declared for them in
+SPSS.</p>
 
 <h2>Multiple categorical variables</h2>
 
@@ -141,7 +184,7 @@ regular variables, identifiable as follows:</p>
 <ul>
   <li>each variable has a title comprised of the underlying multiple variable
     title with the answer label of the corresponding category</li>
-  <li>each variable has an answer list containing either:
+  <li>each variable has an answer list containing either: 
     <ul>
       <li>exactly two answers coded as zero (answer not applicable) or one
         (answer applicable)</li>
@@ -196,6 +239,27 @@ file, i.e.:</p>
   <li>where spread representation is used, the same labels are always used for
     the first answer, second answer etcetera.</li>
 </ul>
+
+<h2>CSV output</h2>
+
+<p>If the -c switch is used a .CSV file is generated as specified in the
+Triple-S standard. Note that all multiple values are enclosed in quotes, not
+just those whose first character is zero. The motivation is consistent
+treatment if the CSV file is read into Excel, every value in each column will
+be treated as either numeric or character and aligned accordingly.</p>
+
+<h4>Interpreted output</h4>
+
+<p>The switch -d may be used to created interpreted output in the .csv file,
+i.e. each column for a categorical variable will contain the variable label and
+not its code. The character specified as delimiter (e.g. -d\ to specify
+backslash) is used to separate the values of a multiple variable within its
+column. The CSV file generated in this way <strong>is not Triple-S
+compliant</strong>. However, this output can be very useful with analysis
+applications that have no support for metadata, e.g. Excel pivot tables. NB:
+the -d switch is required to invoke this mode even if there are no multiple
+variables in the file. In this mode it usually makes sense to disable the
+automatic inference of multiples by specifying "-a " and "-b ".</p>
 
 <h2>Known Issues</h2>
 <ol>

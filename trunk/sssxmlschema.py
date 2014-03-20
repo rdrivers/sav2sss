@@ -7,6 +7,58 @@ import re
 import math
 
 class SSSXMLError (exceptions.Exception): pass
+
+def escapeCSVText (text):
+	if text.find (',') >= 0 or text.find ('"') >= 0:
+		return (True, text.replace ('"', '""'))
+	else:
+		return (False, text)
+		
+def escapedCSVText (text):
+	quote, text = escapeCSVText (text)
+	if quote:
+		text = '"' + text + '"'
+	return text
+		
+def pruneCSVNumber (text):
+	if text.startswith ('-'):
+		sign = '-'
+		rump = text [1:]
+	else:
+		sign = ''
+		rump = text
+	rump = rump.lstrip ('0')
+	if rump.startswith ('.'):
+		rump = '0' + rump
+	value = sign + rump
+	# print "..Pruning %s as %s" % (text, value)
+	return value
+	
+def toCSVField (vv, encoding="ascii", multipleDelimiter=""):
+	quote = False
+	variable = vv.variable
+	if vv.value is None: text = ""
+	elif multipleDelimiter and variable.type in ("single", "multiple"):
+		answerList = variable.answerList
+		if variable.type == 'single':
+			text = forceEncoding (answerList.answerText (vv.value), encoding)
+		else:
+			texts = []
+			for code in vv.value:
+				texts.append (forceEncoding (answerList.answerText (code), encoding))
+			text = multipleDelimiter.join (texts)
+		quote, text = escapeCSVText (text)
+	else:	
+		text = vv.field.rstrip ()
+		if variable.type == "multiple":
+			quote = True	# Always quote multiples
+		elif variable.type == "character":
+			quote, text = escapeCSVText (text)
+		else:
+			text = pruneCSVNumber (text)
+	if quote:
+		text = '"' + text + '"'
+	return text
 		
 def invertMap (map):
 	result = {}
@@ -159,7 +211,7 @@ class SSSXMLSchema (SchemaRepresentation):
 			recordLength = variable.finish
 		self.recordLength = recordLength
 			
-	def save (self, file):
+	def save (self, file, format="asc"):
 		xmlDate = ""
 		if self.sssDate and self.sssDate.strip ():
 			xmlDate = "\n\t<date>%s</date>" % self.sssDate
@@ -181,6 +233,8 @@ class SSSXMLSchema (SchemaRepresentation):
 		recordAttributes = " ident='%s'" % self.ident
 		if self.href.strip ():
 			recordAttributes += " href='%s'" % forceEncoding(escape(self.href.strip ()))
+		if format == "csv":
+			recordAttributes += " skip=1"
 		file.write ("""<?xml version="1.0" encoding="ISO-8859-1"?>
 <sss version="2.0">%s%s%s%s
 	<survey>%s%s
@@ -189,7 +243,7 @@ class SSSXMLSchema (SchemaRepresentation):
 			 xmlTitle,
 			 xmlName,
 			 recordAttributes))
-		for variable in self.schema.variableSequence:
+		for index, variable in enumerate (self.schema.variableSequence):
 			# if variable.length is None: break
 			use = ""
 			if self.schema.serialVariableSequence == variable.index:
@@ -200,13 +254,17 @@ class SSSXMLSchema (SchemaRepresentation):
 			if variable.baseVariableIndex is not None:
 				filter = ' filter="%s"' %\
 					self.schema.variableSequence [variable.baseVariableIndex].name
+			if format == "asc":
+				positionAttributes = 'start="%d" finish="%d"' % (variable.start, variable.finish)
+			else:
+				positionAttributes = 'start="%d"' % (index+1,)
 			file.write ("""			<variable ident="%s" type=%s%s%s>
 				<name>%s</name>
 				<label>%s</label>
-				<position start="%d" finish="%d"/>\n""" %\
+				<position %s/>\n""" %\
 					(variable.id, quoteattr(variable.type), use, filter,
 					 escape(variable.name), forceEncoding(escape (variable.ttext)),
-					 variable.start, variable.finish))
+					 positionAttributes))
 			if variable.type in ('single', 'multiple'):
 				if variable.type == "multiple" and variable.isSpread:
 					file.write ("""				<spread subfields="%d" width="%d"/>\n""" %\
@@ -330,6 +388,8 @@ class SSSFloatVariableValue (SSSVariableValue):
 		except exceptions.Exception, e:
 				raise SSSXMLError, "Cannot encode value %s of decimal variable %s into width %s.%s at record %s" %\
 					(self.value, self.variable.name, self.width, self.dp, self.dataset.recordNumber)		
+		#print "..Encoded variable %s with %d decimal place(s) as %s" %\
+		#	(self.variable.name, self.variable.dp, self.field)
 			
 class SSSBooleanVariableValue (SSSVariableValue):
 				
@@ -399,7 +459,8 @@ class SSSBitstringVariableValue (SSSMultipleVariableValue):
 						
 class SSSDataset (Dataset):
 
-	def __init__ (self, schemaRepresentation, filename, isInput=True, dataEncoding="ascii"):
+	def __init__ (self, schemaRepresentation, filename, isInput=True,
+		dataEncoding="ascii", format="asc", multipleDelimiter=""):
 		if isInput:
 			dataFile = file (filename)
 		else:
@@ -408,7 +469,22 @@ class SSSDataset (Dataset):
 		self.hasBeenWritten = False
 		self.hasBeenReopened = False
 		self.dataEncoding = dataEncoding
+		self.format = format
+		self.multipleDelimiter = multipleDelimiter
 		Dataset.__init__ (self, schemaRepresentation, dataFile, isInput)
+		if self.format == "csv":
+			if isInput:
+				pass
+			else:
+				titles = []
+				for vv in self.variableValueSequence:
+					if self.multipleDelimiter:
+						heading = vv.variable.ttext
+					else:
+						heading = vv.variable.name
+					titles.append (escapedCSVText (forceEncoding (heading.strip ())))
+				self.dataStore.write (",".join (titles))
+				self.dataStore.write ("\n")
 
 	def _assignVariableValue (self, index):
 		variable = self.schema.variableSequence[index]
@@ -444,10 +520,15 @@ class SSSDataset (Dataset):
 				self.hasBeenReopenend = True
 		self.dataStore.seek (0)	
 		
-	def write (self, encoding="ascii"):
+	def write (self):
 		Dataset.write (self)
-		self.dataStore.write\
-			(''.join([vv.field for vv in self.variableValueSequence]).rstrip())
+		if self.format == "asc":
+			self.dataStore.write\
+				(''.join([vv.field for vv in self.variableValueSequence]).rstrip())
+		elif self.format == "csv":
+			self.dataStore.write\
+				(','.join ([toCSVField (vv, self.dataEncoding, self.multipleDelimiter)
+					for vv in self.variableValueSequence]))
 		self.dataStore.write ("\n")
 		self.hasBeenWritten = True
 		
