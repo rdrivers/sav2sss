@@ -35,8 +35,10 @@ def isYesNo (savVariable):
 	if savVariable.labelList is None or\
 	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
 	       	return False
-	if yesLabel in savVariable.dataset.labelLists [savVariable.labelList].labels.values () and\
-	   noLabel in savVariable.dataset.labelLists [savVariable.labelList].labels.values ():
+
+	values = savVariable.dataset.labelLists [savVariable.labelList].labels.values ()	
+	if yesLabel in values and noLabel in values:
+	   	# print "isYesNo", noLabel, yesLabel, values
 	   	return True
 	return False
 		
@@ -46,8 +48,9 @@ def is01 (savVariable):
 	if savVariable.labelList is None or\
 	       len (savVariable.dataset.labelLists [savVariable.labelList].labels) <> 2:
 	       	return False
-	if 0 in savVariable.dataset.labelLists [savVariable.labelList].labels.keys () and\
-	   1 in savVariable.dataset.labelLists [savVariable.labelList].labels.keys ():
+	keys = savVariable.dataset.labelLists [savVariable.labelList].labels.keys ()
+	if 0 in keys and 1 in keys:
+		# print "is01", keys
 	   	return True
 	return False
 		
@@ -193,8 +196,21 @@ class SAVSchema (SchemaRepresentation):
 			if len (variableGroup) <> 1 and\
 				((not maybeSpread) or initialVariable.sensibleLabelCount () > 1):
 				multipleCount = multipleCount + 1
-				print "..SPSS-style multiple found: %s (%d categories)" %\
-					(structuredNameRoot (variableGroup [0].name), len(variableGroup))
+				initialVariable.isMultiple = True
+				initialVariable.isSpread = maybeSpread
+				if maybeSpread:
+					multipleMotivation = "spread"
+	   			elif allAnswerListsSingleCategory (variableGroup[:-1], variableGroup [0]):
+	   				multipleMotivation = "all single category"
+	    			elif allAnswerListsYesNo (variableGroup[:-1], variableGroup [0]):
+	    				multipleMotivation = "all yes/no"
+	    			elif allAnswerLists01 (variableGroup[:-1], variableGroup [0]):
+	    				multipleMotivation = "all coded 0/1"
+	    			else:
+	    				raise SchemaError, "Internal error: unclear motivation for classification as multiple: %s" %\
+	    					(variableGroup [0].name,)
+				print "..SPSS-style multiple found: %s (%d categories, %s)" %\
+					(structuredNameRoot (variableGroup [0].name), len(variableGroup), multipleMotivation)
 				if commonPrefix (variableGroup [:-1], variableGroup [-1]):
 					prefixLength = len (getPrefix (initialVariable.label))
 				else:
@@ -204,8 +220,6 @@ class SAVSchema (SchemaRepresentation):
 				else:
 					suffixLength = 0
 				
-				initialVariable.isMultiple = True
-				initialVariable.isSpread = maybeSpread
 				if initialVariable.isSpread:
 					for index, componentVariable in enumerate (variableGroup):
 						componentVariable.isDummy = True
@@ -219,6 +233,7 @@ class SAVSchema (SchemaRepresentation):
 					initialVariable.labels = []
 					for index, componentVariable in enumerate (variableGroup):
 						if initialVariable.isSingleCategory:
+							print "Single category case", savDataset.labelLists [componentVariable.labelList]
 							label = savDataset.labelLists [componentVariable.labelList].labels [1]
 							initialVariable.yesCode = 1
 						else:
@@ -228,7 +243,10 @@ class SAVSchema (SchemaRepresentation):
 							if suffixLength > 0:
 								label = label\
 									[:-suffixLength-len(suffixDelimiterText)]
-							initialVariable.yesCode = findYesCode (componentVariable)
+							if multipleMotivation == "all yes/no":
+								initialVariable.yesCode = findYesCode (componentVariable)
+							else:
+								initialVariable.yesCode = 1
 						initialVariable.labels.append\
 							(label)
 						if index > 0: componentVariable.isDummy = True
@@ -439,7 +457,7 @@ if __name__ == "__main__":
 	suffixDelimiterText = ""
 	prefixDelimiterText = ":"
 	spreadMultipleAnswerList = ":1st answer,:2nd answer,:3rd answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer"
-	version = 0.4
+	version = 0.6
 	defaultMetadata = (";%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com)" %\
 		("now", "now", version)).split (";")
 	xmlMetadata = ""

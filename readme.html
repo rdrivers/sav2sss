@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.5</h1>
+<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.6</h1>
 
 <p>The sav2sss utility converts an SPSS® .sav file to Triple-S XML metadata and
 data.</p>
@@ -56,7 +56,7 @@ Visual C 2008 runtime DLLs</a>.</p>
     long string variable lengths. By default each long string variable is
     reduced to a length no greater than the next power of 2 greater than the
     maximum size found in the file for that variable.</li>
-  <li>The -f switch enables "full" output that includes: 
+  <li>The -f switch enables "full" output that includes:
     <ul>
       <li>A description of the information about each variable found in the
       file</li>
@@ -101,13 +101,13 @@ value in double quotes, e.g. "-tMy title"</em></p>
     by default. </li>
   <li>The -h switch is used to specify an href attribute for the &lt;record&gt;
     element. By default sav2sss includes an href which is a relative reference
-    to the .asc file. To exclude the href use 
+    to the .asc file. To exclude the href use
     <pre>"-h "</pre>
   </li>
   <li>The -t switch is used to specify contents of either of the &lt;name&gt;
     and &lt;title&gt; elements in the XML. Separate the name and title by a
     semicolon. There is no default name or title. If there is no semicolon the
-    whole value is used as the title. E.g. 
+    whole value is used as the title. E.g.
     <pre>"-tOmnibus201401:January 2014 Omnibus survey"</pre>
     <p>Name is 'Omnibus201401' and title is 'January 2014 Omnibus survey' </p>
     <pre>"-tJanuary 2014 Omnibus survey"</pre>
@@ -124,7 +124,7 @@ parameter as described above. Otherwise:</p>
 <ul>
   <li>The &lt;date&gt; element shows the date of the SAV2SSS run</li>
   <li>The &lt;time&gt; element shows the time of day of the SAV2SSS run</li>
-  <li>The &lt;origin&gt; element contains 
+  <li>The &lt;origin&gt; element contains
     <pre>SAV2SSS {version} (Windows) by Computable Functions (http://www.computable-functions.com)</pre>
   </li>
 </ul>
@@ -184,7 +184,7 @@ regular variables, identifiable as follows:</p>
 <ul>
   <li>each variable has a title comprised of the underlying multiple variable
     title with the answer label of the corresponding category</li>
-  <li>each variable has an answer list containing either: 
+  <li>each variable has an answer list containing either:
     <ul>
       <li>exactly two answers coded as zero (answer not applicable) or one
         (answer applicable)</li>
