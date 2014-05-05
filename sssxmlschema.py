@@ -230,11 +230,14 @@ class SSSXMLSchema (SchemaRepresentation):
 		xmlTitle = ""
 		if self.schema.title:
 			xmlTitle = "\n\t\t<title>%s</title>" % forceEncoding(escape(self.schema.title))
-		recordAttributes = " ident='%s'" % self.ident
+		recordAttributes = " ident=\"%s\"" % self.ident
+		print recordAttributes
 		if self.href.strip ():
-			recordAttributes += " href='%s'" % forceEncoding(escape(self.href.strip ()))
+			recordAttributes += " href=\"%s\"" % forceEncoding(escape(self.href.strip ()))
+		print recordAttributes
 		if format == "csv":
-			recordAttributes += " skip=1"
+			recordAttributes += " format=\"csv\" skip=\"1\""
+		print recordAttributes
 		file.write ("""<?xml version="1.0" encoding="ISO-8859-1"?>
 <sss version="2.0">%s%s%s%s
 	<survey>%s%s
