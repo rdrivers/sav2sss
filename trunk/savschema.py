@@ -457,7 +457,7 @@ if __name__ == "__main__":
 	suffixDelimiterText = ""
 	prefixDelimiterText = ":"
 	spreadMultipleAnswerList = ":1st answer,:2nd answer,:3rd answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer"
-	version = 0.6
+	version = 0.7
 	defaultMetadata = (";%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com)" %\
 		("now", "now", version)).split (";")
 	xmlMetadata = ""
