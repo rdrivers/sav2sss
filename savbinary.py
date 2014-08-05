@@ -4,6 +4,20 @@ import exceptions
 import struct
 import datetime
 
+def forceEncoding (text, encoding='ascii'):
+	if type (text) != unicode:
+		return str (text)
+	try:
+		return text.encode(encoding)
+	except UnicodeError:
+		lchars = []
+		for char in text:
+			try:
+				lchars.append(char.encode(encoding))
+			except UnicodeError, e:
+				lchars.append("&#%d;" % ord(char))				
+		return ''.join(lchars)
+
 def setBig():
 	global big, wordFormat, longFormat, signedLongFormat, floatFormat, endianity, endianityChar
 	wordFormat = '>H'
@@ -224,7 +238,7 @@ class SAVVariable:
 			 self.print_, self.write_, blankNone (self.labelList), self.isDummy,
 			 blankNone (self.extendedStringLength),
 			 self.width, self.measure, self.alignment)
-		if self.has_var_label: repn += "; Label=%s" % (self.label)
+		if self.has_var_label: repn += "; Label=%s" % (forceEncoding (self.label))
 		return repn
 		
 class SAVDataset:
@@ -645,10 +659,10 @@ class SAVDataset:
 		if verbose:
 			for i, variable in enumerate (self.variables):
 				if not variable.isDummy:\
-					print "Variable %d (%s): %s" % (i, variable.fullPosition+1, variable)
+					print forceEncoding ("Variable %d (%s): %s" %\
+						(i, variable.fullPosition+1, variable))
 			for i, l in enumerate (self.labelLists):
 				print "List: %d" % i, l.labels, l.variablesApplicable# , l.nonInteger
-
 	
 	def _getDataItemStream (self):
 		def getDataByte (offset):
