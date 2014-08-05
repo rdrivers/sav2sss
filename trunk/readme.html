@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.7</h1>
+<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.8</h1>
 
 <p>The sav2sss utility converts an SPSS® .sav file to Triple-S XML metadata and
 data.</p>
@@ -115,6 +115,8 @@ value in double quotes, e.g. "-tMy title"</em></p>
   </li>
   <li>The -d switch is used to trigger interpreted CSV mode (see below) and
     specify a delimiter for multiple values in the output file.</li>
+  <li>The -e switch is used for formats for multiple variables that are not of the form Q1_1, Q1_2 etcetera, typically if the suffices are alphabetic or integers not consecutive and starting from one. If it is simply the delimiter that is not the default (underscore) then just specify it with the -e switch, e.g. "-e$" to specify dollar sign as the delimiter. To specify alphabetic suffices, add them after the delimiter character separated by colons, e.g. "-e@A:B:C:D:E:F:G:H" to specify that the delimiter is at-sign and the suffices are A, B, C, D, E, F, G and H.
+
 </ul>
 
 <h2>Metadata</h2>
@@ -175,7 +177,8 @@ regular variables, identifiable as follows:</p>
     the categories</li>
   <li>each variable has the same root name with an underscore followed by an
     integer as a suffix (with some complications where adding the suffix makes
-    the variable name into a long name)</li>
+    the variable name into a long name) OR (as described above for the -e command option) a delimiter
+    followed by a suffix drawn from a list, e.g. the letters A, B, C etcetera.</li>
 </ul>
 
 <p>Together with one of the following scenarios:</p>

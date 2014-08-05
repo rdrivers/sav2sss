@@ -231,13 +231,10 @@ class SSSXMLSchema (SchemaRepresentation):
 		if self.schema.title:
 			xmlTitle = "\n\t\t<title>%s</title>" % forceEncoding(escape(self.schema.title))
 		recordAttributes = " ident=\"%s\"" % self.ident
-		print recordAttributes
 		if self.href.strip ():
 			recordAttributes += " href=\"%s\"" % forceEncoding(escape(self.href.strip ()))
-		print recordAttributes
 		if format == "csv":
 			recordAttributes += " format=\"csv\" skip=\"1\""
-		print recordAttributes
 		file.write ("""<?xml version="1.0" encoding="ISO-8859-1"?>
 <sss version="2.0">%s%s%s%s
 	<survey>%s%s
@@ -266,7 +263,8 @@ class SSSXMLSchema (SchemaRepresentation):
 				<label>%s</label>
 				<position %s/>\n""" %\
 					(variable.id, quoteattr(variable.type), use, filter,
-					 escape(variable.name), forceEncoding(escape (variable.ttext)),
+					 forceEncoding (escape(variable.name)),
+					 forceEncoding(escape (variable.ttext)),
 					 positionAttributes))
 			if variable.type in ('single', 'multiple'):
 				if variable.type == "multiple" and variable.isSpread:
@@ -415,8 +413,15 @@ class SSSMultipleVariableValue (SSSVariableValue):
 		self.start0 = self.variable.start - 1
 		self.finish0 = self.variable.finish - 1
 		self.width = self.finish0 - self.start0 + 1
-		self.fieldWidth = self.variable.width
 		self.count = self.variable.count
+		if self.variable.isSpread:
+			self.datafileFieldWidth = self.width / self.variable.count
+			answerList = self.variable.answerList
+			self.fieldWidth = max (codeLength (answerList.minCode),
+					       codeLength (answerList.maxCode))
+			if self.fieldWidth > self.datafileFieldWidth:
+				raise SSSXMLError, "Field width %d inadequate for codes of question %s" %\
+					(self.datafileFieldWidth, self.variable.name)
 			
 class SSSSpreadVariableValue (SSSMultipleVariableValue):
 				
@@ -424,9 +429,8 @@ class SSSSpreadVariableValue (SSSMultipleVariableValue):
 		self._prepareValue()
 		if self.field is not None:
 			result = []
-			for offset in xrange(0, self.width, self.fieldWidth):
+			for offset in xrange(self.datafileFieldWidth - self.fieldWidth, self.width, self.datafileFieldWidth):
 				fieldValue = int (self.field[offset:offset+self.fieldWidth])
-				if fieldValue == 0: break
 				result.append (fieldValue)
 			self.value = result
 		

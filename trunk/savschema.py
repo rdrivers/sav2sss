@@ -20,14 +20,33 @@ len2Codes = ["%02d" % i for i in xrange(0, 100)]
 identifierRE = re.compile ("[a-zA-Z][a-zA-Z0-9_]*")
  
 def structuredNameIndex (aName):
-	components = aName.split ("_")
-	if len (components) > 1 and components [-1].isdigit ():
-		return int (components [-1])
+	components = aName.split (variableDelimiterText)
+	if len (components) > 1:
+		suffix = components [-1]
+		if len (variableSuffices):
+			for index, aSuffix in enumerate (variableSuffices):
+				if suffix == aSuffix:
+					result = index + 1
+					break
+			else:
+				result = None
+		else:
+			if suffix.isdigit ():
+				result = int (suffix)
+			else:
+				result = None
 	else:
-		return None
-
+		result = None
+	#print "Structured name index for '%s' (%s), delimiter '%s' (%s), split '%s', result '%s'" %\
+	#	(forceEncoding (aName), type (aName),
+	#	 forceEncoding (variableDelimiterText),
+	#	 type (variableDelimiterText),
+	#	 forceEncoding (aName.split (variableDelimiterText)),
+	#	 forceEncoding (result))
+	return result
+	
 def structuredNameRoot (aName):
-	return "_".join (aName.split ("_") [:-1])
+	return variableDelimiterText.join (aName.split (variableDelimiterText) [:-1])
 		
 # See if variable has yes/no answer list
 
@@ -91,7 +110,7 @@ def getSuffix (text):
 # See if sequence of variables is potentially a multiple based on their names
 def isPotentialMultiple (vList, next):
 	value = (structuredNameIndex (vList [0].name) == 1 or
-		structuredNameIndex (vList [0].longName) == 1) and\
+		 structuredNameIndex (vList [0].longName) == 1) and\
 	       (structuredNameIndex (next.name) == len (vList) + 1 or
 	        structuredNameIndex (next.longName) == len (vList) + 1) and\
 	        structuredNameRoot (vList [0].name) == structuredNameRoot (next.name)
@@ -135,9 +154,7 @@ def commonPrefix (vList, next):
 	else:
 		value = True
 	# print "commonPrefix", value, vList [0], next
-	return value
-	
-		
+	return value			
 def commonSuffix (vList, next):
 	lastSuffix = getSuffix (next.label)
 	if len (lastSuffix) == 0: return False
@@ -466,8 +483,10 @@ if __name__ == "__main__":
 	titleText = ""
 	csv = False
 	multipleDelimiter = ""
+	variableDelimiterText = u"_"
+	variableSuffices = []
 	
-	optlist, args = getopt.getopt(sys.argv[1:], 'cvsfo:i:y:n:a:b:m:x:h:t:d:')
+	optlist, args = getopt.getopt(sys.argv[1:], 'cvsfo:i:y:n:a:b:m:x:h:t:d:e:')
 	for (option, value) in optlist:
 		if option == '-c':
 			csv = True
@@ -499,6 +518,11 @@ if __name__ == "__main__":
 			href = value
 		if option == "-t":
 			titleText = value
+		if option == "-e":
+			variableDelimiterText = value.decode (outputEncoding)
+			variableSuffices = variableDelimiterText [1:].split (":")
+			if variableSuffices: variableDelimiterText = variableDelimiterText [0]
+			print "..Variable delimiter will be '%s'" % variableDelimiterText
 
 	nameTitle = titleText.split (";")
 	if len (nameTitle) == 1:
@@ -605,15 +629,15 @@ if __name__ == "__main__":
 					for vv, distribution in distributions:
 						itemCount = len (distribution)
 						others = 0
-					 	print "Variable\t%s Distribution" % vv.variable.name
+					 	print "Variable\t%s Distribution" %\
+					 		forceEncoding (vv.variable.name)
 						for value, total in distribution.items ():
 							if itemCount < 10 or total.unweightedTotal >  1:
 								print "Value\t%s\t%s" % (value, total.unweightedTotal)
 							else:
 								others += 1
 						if others > 0:
-							print "Unlisted singleton values:", others
-						
+							print "Unlisted singleton values:", others						
 				SSSDataset.close ()
 				outputXMLFile.close ()
 				
