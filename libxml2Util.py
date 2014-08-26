@@ -103,14 +103,20 @@ class XPC:
 		nodes = self.eval (path, node)
 		return len(nodes) == 1
 	
-	def requireSingleNode (self, path, node=None):
+	def optionalNode (self, path, node=None):
 		nodes = self.eval (path, node)
 		if len(nodes) == 1:
 			return nodes[0]
 		elif len(nodes) == 0:
-			raise XMLError, "XPath (%s) didn't return any nodes" % path
+			return None
 		else:
 			raise XMLError, "XPath (%s) returned %d nodes" % (path, len(nodes))
+	
+	def requireSingleNode (self, path, node=None):
+		node = self.optionalNode (path, node)
+		if not node:
+			raise XMLError, "XPath (%s) didn't return any nodes" % path
+		return node
 
 	def getTextNode (self, path="text()", node=None):
 		nodes = self.eval (path+"/text()", node)
