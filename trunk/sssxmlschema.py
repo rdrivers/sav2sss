@@ -91,6 +91,14 @@ def encodeFloat (f, width, dp):
 	field = "%0*.*f" % (width, dp, f)
 	if len (field) > width: field = None
 	return field
+
+def requireSSSTextNode (xpc, path="text()", node=None):
+	nodes = xpc.eval (path+"/text()", node)
+	if len(nodes) == 0:
+		return ""
+	else:
+		result = "<br/>".join ((libxml2Util.fromUTF(node.content) for node in nodes))
+		return result
 								
 class SSSXMLSchema (SchemaRepresentation):
 
@@ -108,49 +116,64 @@ class SSSXMLSchema (SchemaRepresentation):
 		self.schema = Schema()
 		self.recordLength = 0
 		xpc = libxml2Util.XPC (doc)
-		survey = xpc.requireSingleNode("self::sss/survey", doc)
-		self.schema.title = xpc.getTextNode ("title", survey)
+		self.SSSVersion = xpc.getAttribute("self::sss/@version")
+		#print "...SSSVersion: %s" % self.SSSVersion
+		self.origin = requireSSSTextNode (xpc, "self::sss/origin")
+		#print "...Origin: %s" % self.origin
+		self.date = requireSSSTextNode (xpc, "self::sss/date")
+		self.time = requireSSSTextNode (xpc, "self::sss/time")
+		self.user = requireSSSTextNode (xpc, "self::sss/user")
+		survey = xpc.requireSingleNode("self::sss/survey")
+		self.schema.title = requireSSSTextNode (xpc, "title", survey)
 		record = xpc.requireSingleNode("record", survey)
 		self.schema.name = xpc.getAttribute("@ident", record)
 		self.href = xpc.getAttribute ("@href", record)
 		for variableDoc in xpc.eval("variable", record):
+			potentialMin = None
+			potentialMax = None
 			type = xpc.getAttribute("@type", variableDoc).lower ()
 			name = xpc.getTextNode("name", variableDoc)
 			
 			values = xpc.eval("values/value", variableDoc)
-			if type in ("single", "multiple"):
-				answerList = AnswerList(self.schema, name)
+			answerList = None
+			if type in ("single", "multiple", "quantity"):
+				if type != "quantity": answerList = AnswerList(self.schema, name)
 				for answerDoc in values:
 					codeText = xpc.getAttribute("@code", answerDoc)
 					if codeText is None:
 						code = None
 					else:
 						code = int (codeText)
-					Answer(answerList).makeNew\
-						(None, code , xpc.getTextNode (".", answerDoc))
-			else:
-				answerList = None
+						if potentialMin is None or potentialMin > code: potentialMin = code
+						if potentialMax is None or potentialMax < code: potentialMax = code
+					if type != "quantity":
+						Answer(answerList).makeNew\
+							(None, code , requireSSSTextNode (xpc, ".", answerDoc))
 				
 			variable = Variable (self.schema, name, answerList)
 			variable.start = int(xpc.getAttribute("position/@start", variableDoc))
 			variable.finish = int(xpc.getAttribute("position/@finish", variableDoc, str(variable.start)))
 			self.recordLength = max(self.recordLength, variable.finish)
 			variable.id = xpc.getAttribute("@ident", variableDoc)
-			variable.ttext = xpc.getTextNode("label", variableDoc)
+			variable.ttext = requireSSSTextNode (xpc, "label", variableDoc)
 			variable.qtext = None
 			variable.type = type
 			variable.count = 1
+			variable.min = None
+			variable.max = None
+			variable.length = None
+			variable.dp = None
 				
-			use = xpc.getAttribute("@use", variableDoc)
-			if use is not None:
-				if use == 'serial':
+			variable.use = xpc.getAttribute("@use", variableDoc)
+			if variable.use is not None:
+				if variable.use == 'serial':
 					self.schema.serialVariableSequence = variable.index
-				elif use == 'weight':
+				elif variable.use == 'weight':
 					self.schema.weightVariableSequence = variable.index
 					
-			filter = xpc.getAttribute("@filter", variableDoc)
-			if filter is not None:
-				variable.baseVariableIndex = self.schema.findVariable (filter)
+			variable.filter = xpc.getAttribute("@filter", variableDoc)
+			if variable.filter is not None:
+				variable.baseVariableIndex = self.schema.findVariable (variable.filter)
 				if variable.baseVariableIndex is not None:
 					variable.baseVariableFilterValue = 1
 								
@@ -158,8 +181,18 @@ class SSSXMLSchema (SchemaRepresentation):
 				variable.length = answerList.maxCode
 				if type == "multiple":
 					if xpc.hasSingleNode ("spread", variableDoc):
-						variable.count = int(xpc.getAttribute("@subfields", variableDoc))
-						variable.width = int(xpc.getAttribute("@width", variableDoc, '1'))
+						countAttribute = xpc.getAttribute("spread/@subfields", variableDoc)
+						widthAttribute = xpc.getAttribute("spread/@width", variableDoc)
+						if countAttribute:
+							variable.count = int (countAttribute)
+						else:
+							variable.count = variable.length
+						if widthAttribute:
+							variable.width = int(widthAttribute)
+						else:
+							variable.width = (variable.finish - variable.start + 1) / variable.count
+						if variable.count*variable.width != (variable.finish - variable.start + 1):
+							raise SSSXMLError, "Spread multiple %s has inconsistent parameters" % variable.name
 						variable.isSpread = True
 					else:
 						variable.count = variable.length
@@ -167,12 +200,32 @@ class SSSXMLSchema (SchemaRepresentation):
 						variable.isSpread = False
 
 			elif type == "quantity":
-				minText = xpc.getAttribute("values/range/@from", variableDoc)
+				rangeDoc = xpc.optionalNode ("range", variableDoc)
+				if not rangeDoc:
+					rangeDoc = xpc.optionalNode ("values/range", variableDoc)
+				if not rangeDoc:
+					raise SSSXMLError, "No range found for quantity variable %s" % variable.name
+				minText = xpc.getAttribute("@from", rangeDoc)
 				variable.dp = 0
-				if minText.find('.') >= 0:
+				if minText and minText.find('.') >= 0:
 					variable.dp = len(minText)-minText.find('.')-1
-				variable.min = float(minText)
-				variable.max = float(xpc.getAttribute("values/range/@to", variableDoc))
+				if minText:
+					explicitMin = float (minText)
+					if potentialMin is None:
+						variable.min = explicitMin
+					else:
+						variable.min = min (explicitMin, potentialMin)
+				else:
+					variable.min = potentialMin
+				maxText = xpc.getAttribute("@to", rangeDoc)
+				if maxText:
+					explicitMax = float (maxText)
+					if potentialMax is None:
+						variable.max = explicitMax
+					else:
+						variable.max = max (explicitMax, potentialMax)
+				else:
+					variable.max = potentialMax
 				
 			if xpc.hasSingleNode ("size", variableDoc):
 				variable.length = int(xpc.getTextNode ("size", variableDoc))
@@ -424,6 +477,9 @@ class SSSMultipleVariableValue (SSSVariableValue):
 					(self.datafileFieldWidth, self.variable.name)
 			
 class SSSSpreadVariableValue (SSSMultipleVariableValue):
+
+	def __init__ (self, dataset, index):
+		SSSMultipleVariableValue.__init__ (self, dataset, index)
 				
 	def _extractValue (self):
 		self._prepareValue()
@@ -431,8 +487,10 @@ class SSSSpreadVariableValue (SSSMultipleVariableValue):
 			result = []
 			for offset in xrange(self.datafileFieldWidth - self.fieldWidth, self.width, self.datafileFieldWidth):
 				fieldValue = int (self.field[offset:offset+self.fieldWidth])
-				result.append (fieldValue)
+				if fieldValue: result.append (fieldValue)
 			self.value = result
+			#print self.variable.name, self.width, self.fieldWidth, self.count, self.datafileFieldWidth
+			#print "Extract %s: '%s' (%d-%d) as %s" % (self.variable.name, self.field, self.start0, self.finish0, result)
 		
 	def _formatValue (self):
 		fields = []
@@ -449,6 +507,9 @@ class SSSSpreadVariableValue (SSSMultipleVariableValue):
 		self.field = ''.join(fields)
 			
 class SSSBitstringVariableValue (SSSMultipleVariableValue):
+
+	def __init__ (self, dataset, index):
+		SSSMultipleVariableValue.__init__ (self, dataset, index)
 				
 	def _extractValue (self):
 		self._prepareValue()
