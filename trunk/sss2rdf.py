@@ -480,7 +480,7 @@ if __name__ == "__main__":
 			if option == "-b":
 				batchSize = int (value)
 			if option == "-t":
-				title = value
+				title = value.strip ()
 			if option == "-s":
 				store = value.lower ()
 			if option == "-e":
