@@ -30,13 +30,7 @@ import libxml2Util
 import urllib
 import urllib2
 
-class RequestWithMethod(urllib2.Request):
-	def __init__(self, method, *args, **kwargs):
-		self._method = method
-		urllib2.Request.__init__ (self, *args, **kwargs)
-
-	def get_method(self):
-		return self._method
+import rdfutil
 		
 from schema import *
 
@@ -136,18 +130,6 @@ class SSSUUIDs:
 		for triple in triples: writer.add (triple)
 
 class SSS2RDFError (exceptions.Exception): pass
-
-class NodeUUIDMaker (object):
-
-	def __init__ (self, ns=None):
-		self.ns = ns
-
-	def uuid (self, suffix=None):
-		if self.ns and suffix:
-			uuid = self.ns [suffix]
-		else:
-			uuid = rdflib.BNode ()
-		return uuid
 
 def prepareMetadataTriples ():
 	# survey and record properties
@@ -334,108 +316,6 @@ def prepareCaseTriples (data, index, constructVariableValues):
 						caseTriples.append ((caseUUID, SSSUUIDs.serial, rdflib.Literal (value)))
 
 		for triple in caseTriples: writer.add (triple)
-
-class TripleWriter (object):
-	def __init__ (self, bindings = {}, outputFormat="n3", contextURI="", batchSize=0):
-		self.contextURI = contextURI
-		self.tripleCount = 0
-		self.batchSize = batchSize
-		self.batchCount = 0
-		self.bindings = bindings
-		self.outputFormat = outputFormat
-		self.limit = None
-		self.offset = None
-		self.addedCount = 0
-		
-	def setLimits (self, limit=None, offset=None):
-		if limit is not None: self.limit = limit
-		if offset is not None: self.offset = offset
-		
-	def _writeBatch (self):
-		pass
-		
-	def add (self, triple):
-		addThisTriple = not (
-			(self.offset is not None and self.tripleCount < self.offset) or
-		   	(self.limit is not None and self.addedCount >= self.limit))
-		self.tripleCount += 1
-		if addThisTriple:
-			self.addedCount += 1
-			if self.batchSize and self.batchCount == self.batchSize:
-				self._writeBatch ()
-				self.batchCount = 0
-			if self.batchCount == 0:
-				if self.contextURI:
-					self.graph = rdflib.ConjunctiveGraph ("IOMemory",
-						rdflib.URIRef (self.contextURI))
-				else:
-					self.graph = rdflib.ConjunctiveGraph ()
-				for name, value in self.bindings.items ():
-					self.graph.bind (name, value)
-			self.graph.add (triple)
-			self.batchCount += 1
-			
-	def close (self):
-		if self.batchCount > 0:
-			self._writeBatch ()
-		
-class FileTripleWriter (TripleWriter):
-	def __init__ (self, outputFilename, bindings, outputFormat, contextURI="", batchSize=0):
-		TripleWriter.__init__ (self, bindings, outputFormat, contextURI, batchSize)
-		self.outputFile = open (outputFilename, 'w')
-	
-	def _writeBatch (self):
-		print >> self.outputFile, self.graph.serialize (format=self.outputFormat)
-		
-	def close (self):
-		TripleWriter.close (self)
-		self.outputFile.close ()
-		
-class BigdataTripleWriter (TripleWriter):
-	def __init__ (self, endpoint, delete, bindings, outputFormat, contextURI="", batchSize=0):
-		TripleWriter.__init__ (self, bindings, outputFormat, contextURI, batchSize)
-		self.endpoint = endpoint
-		self.delete = delete
-		print "..Uploading data for context %s to %s" % (contextURI, endpoint)
-		if self.delete:
-			print "..Purging context %s from %s" % (contextURI, endpoint)
-			request = RequestWithMethod ("DELETE", endpoint + "?" +
-				urllib.urlencode ({"c": "<" + contextURI + ">"}))
-			request.add_header ("Accept", "application/xml")
-			#request.add_data(urllib.urlencode ({"c": "<" + contextURI + ">"}))
-			u = self._makeUpdateRequest (request)
-			print "..Context purged, %s records(s) in %s milliseconds" %\
-				(u ["modified"], u ["milliseconds"])
-	
-	def _writeBatch (self):
-		request = RequestWithMethod ("POST", endpoint + "?" +
-			urllib.urlencode ({"context-uri": contextURI}))
-		#request = RequestWithMethod ("PUT", endpoint)
-		request.add_header ("Accept", "application/xml")
-		#request.add_header ("Content-Type", "text/x-nquads")
-		#request.add_data(self.graph.serialize (format="nquads"))
-		request.add_header ("Content-Type", "text/plain")
-		request.add_data(self.graph.serialize (format="nt"))
-		u = self._makeUpdateRequest (request)
-		print "..Batch of %s records(s) uploaded in %s milliseconds" %\
-			(u ["modified"], u ["milliseconds"])
-			
-	def _makeUpdateRequest (self, request):
-		try:
-			response = urllib2.urlopen (request)
-			responseText = response.read ()
-			xpc = libxml2Util.XPC (libxml2.parseDoc (responseText))
-			return {
-				"modified": xpc.getAttribute("self::data/@modified"),
-				"milliseconds": xpc.getAttribute("self::data/@milliseconds")
-			}
-		except exceptions.Exception, error:
-			print "--Server response: %s" % (error.read ())
-			raise SSS2RDFError, "HTTP Update Error: %s" % error
-		
-class NullTripleWriter (TripleWriter):
-	def __init__ (self, bindings, outputFormat, contextURI="", batchSize=0):
-		TripleWriter.__init__ (self, bindings, outputFormat, contextURI, batchSize)
 		
 if __name__ == "__main__":
 	import sys
@@ -535,25 +415,25 @@ if __name__ == "__main__":
 		if surveyURIBase:
 			surveyNs = rdflib.Namespace (surveyURIBase)
 			bindings ["survey"] = surveyURIBase
-			nodeMaker = NodeUUIDMaker (surveyNs)
+			nodeMaker = rdfutil.NodeUUIDMaker (surveyNs)
 		else:
-			nodeMaker = NodeUUIDMaker ()
+			nodeMaker = rdfutil.NodeUUIDMaker ()
 		if store == "null":
-			writer = NullTripleWriter (
+			writer = rdfutil.NullTripleWriter (
 				bindings = bindings,
 				outputFormat = outputFormat,
 				contextURI = contextURI,
 				batchSize = batchSize
 		)
 		elif store == "file":
-			writer = FileTripleWriter (outputFilename,
+			writer = rdfutil.FileTripleWriter (outputFilename,
 				bindings = bindings,
 				outputFormat = outputFormat,
 				contextURI = contextURI,
 				batchSize = batchSize
 		)
 		elif store == "bigdata":
-			writer = BigdataTripleWriter (endpoint, delete,
+			writer = rdfutil.BigdataTripleWriter (endpoint, delete,
 				bindings = bindings,
 				outputFormat = outputFormat,
 				contextURI = contextURI,
