@@ -41,21 +41,24 @@ len2Codes = ["%02d" % i for i in xrange(0, 100)]
 identifierRE = re.compile ("[a-zA-Z][a-zA-Z0-9_]*")
  
 def structuredNameIndex (aName):
-	components = aName.split (variableDelimiterText)
-	if len (components) > 1:
-		suffix = components [-1]
-		if len (variableSuffices):
-			for index, aSuffix in enumerate (variableSuffices):
-				if suffix == aSuffix:
-					result = index + 1
-					break
+	if variableDelimiterText:
+		components = aName.split (variableDelimiterText)
+		if len (components) > 1:
+			suffix = components [-1]
+			if len (variableSuffices):
+				for index, aSuffix in enumerate (variableSuffices):
+					if suffix == aSuffix:
+						result = index + 1
+						break
+				else:
+					result = None
 			else:
-				result = None
+				if suffix.isdigit ():
+					result = int (suffix)
+				else:
+					result = None
 		else:
-			if suffix.isdigit ():
-				result = int (suffix)
-			else:
-				result = None
+			result = None
 	else:
 		result = None
 	#print "Structured name index for '%s' (%s), delimiter '%s' (%s), split '%s', result '%s'" %\
@@ -495,7 +498,7 @@ if __name__ == "__main__":
 	suffixDelimiterText = ""
 	prefixDelimiterText = ":"
 	spreadMultipleAnswerList = ":1st answer,:2nd answer,:3rd answer,:4th answer,:5th answer,:6th answer,:7th answer,:8th answer"
-	version = 0.7
+	version = 0.9
 	defaultMetadata = (";%s;%s;SAV2SSS %s (Windows) by Computable Functions (http://www.computable-functions.com)" %\
 		("now", "now", version)).split (";")
 	xmlMetadata = ""
@@ -504,7 +507,7 @@ if __name__ == "__main__":
 	titleText = ""
 	csv = False
 	multipleDelimiter = ""
-	variableDelimiterText = u"_"
+	variableDelimiterText = u""
 	variableSuffices = []
 	
 	optlist, args = getopt.getopt(sys.argv[1:], 'cvsfo:i:y:n:a:b:m:x:h:t:d:e:')
@@ -542,8 +545,9 @@ if __name__ == "__main__":
 		if option == "-e":
 			variableDelimiterText = value.decode (outputEncoding)
 			variableSuffices = variableDelimiterText [1:].split (":")
-			if variableSuffices: variableDelimiterText = variableDelimiterText [0]
-			print "..Variable delimiter will be '%s'" % variableDelimiterText
+			if len (variableDelimiterText):
+				variableDelimiterText = variableDelimiterText [0]
+				print "..Variable delimiter will be '%s'" % variableDelimiterText
 
 	nameTitle = titleText.split (";")
 	if len (nameTitle) == 1:
