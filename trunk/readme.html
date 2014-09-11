@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.8</h1>
+<h1>SAV2SSS - SPSS .sav file to Triple-S XML convertor - version 0.9</h1>
 
 <p>The sav2sss utility converts an SPSS® .sav file to Triple-S XML metadata and
 data.</p>
@@ -115,7 +115,10 @@ value in double quotes, e.g. "-tMy title"</em></p>
   </li>
   <li>The -d switch is used to trigger interpreted CSV mode (see below) and
     specify a delimiter for multiple values in the output file.</li>
-  <li>The -e switch is used for formats for multiple variables that are not of the form Q1_1, Q1_2 etcetera, typically if the suffices are alphabetic or integers not consecutive and starting from one. If it is simply the delimiter that is not the default (underscore) then just specify it with the -e switch, e.g. "-e$" to specify dollar sign as the delimiter. To specify alphabetic suffices, add them after the delimiter character separated by colons, e.g. "-e@A:B:C:D:E:F:G:H" to specify that the delimiter is at-sign and the suffices are A, B, C, D, E, F, G and H.
+  <li>The -e switch is used for identifying multiple variables recorded in the .sav file as consecutive single variables. These are typically identified with a common prefix, a delimiter such as underscore, and then a suffix reflecting the identity of each category. This suffix is usually an integer corresponding to the position of the category in the answer list, i.e. _1 for the first answer, _2 for the second answer and so on. For this case, specify "-e_" to assemble (for example) a multiple Q1 from SPSS variables Q1_1, Q1_2 etcetera. Sometimes the suffices are not of this form, typically if the suffices are alphabetic or integers not consecutive and starting from one. To specify suffices individually, add them after the delimiter character separated by colons, e.g. "-e@A:B:C:D:E:F:G:H" to specify that the delimiter is at-sign and the suffices are A, B, C, D, E, F, G and H.<p>The default is "-e" i.e. sav2sss will not attempt to infer and create multiple variables from the SPSS data.
+  </p>
+  </li>
+
 
 </ul>
 
@@ -261,8 +264,8 @@ column. The CSV file generated in this way <strong>is not Triple-S
 compliant</strong>. However, this output can be very useful with analysis
 applications that have no support for metadata, e.g. Excel pivot tables. NB:
 the -d switch is required to invoke this mode even if there are no multiple
-variables in the file. In this mode it usually makes sense to disable the
-automatic inference of multiples by specifying "-a " and "-b ".</p>
+variables in the file. In this mode it does not usually make sense to enable the
+features of sav2sss that create Triple-S multiple variables.</p>
 
 <h2>Known Issues</h2>
 <ol>

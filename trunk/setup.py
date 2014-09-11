@@ -47,16 +47,16 @@ setup(
       description="savschema - import .sav data into Triple-S",
       name="sav2sss",
       zipfile=None,
-      version="0.8")
+      version="0.9")
 
-setup(
-      console=["sss2rdf.py"],
-      author="Iain MacKay",
-      author_email="iain@computable-functions.com",
-      contact="Iain MacKay",
-      options=options,
-      contact_email="support@computable-functions.com",
-      description="sss2rdf - export sss data to RDF",
-      name="sss2rdf",
-      zipfile=None,
-      version="0.1")
+#setup(
+#      console=["sss2rdf.py"],
+#      author="Iain MacKay",
+#      author_email="iain@computable-functions.com",
+#      contact="Iain MacKay",
+#      options=options,
+#      contact_email="support@computable-functions.com",
+#      description="sss2rdf - export sss data to RDF",
+#      name="sss2rdf",
+#      zipfile=None,
+#      version="0.1")
