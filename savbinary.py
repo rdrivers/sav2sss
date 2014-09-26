@@ -84,6 +84,8 @@ def unpackFloat (data):
 	return value
 
 floatFormatCode = 5
+dateFormatCode = 20
+timeFormatCode = 21
 datetimeFormatCode = 22
 formatCodeMap = {
 	1: "A",
@@ -576,8 +578,12 @@ class SAVDataset:
 						#	 struct.unpack (longFormat, dataItem[4:]) [0],
 						#	 value)
 						try:
-							if variable.write_.format_type == datetimeFormatCode:
+							formatType = variable.write_.format_type
+							if formatType in\
+								(dateFormatCode, timeFormatCode, datetimeFormatCode):
 								value = datetime.datetime.fromtimestamp (value - SPSSEpochalDeltaSeconds).isoformat ()
+								if   formatType == dateFormatCode: value = value [0:10]
+								elif formatType == timeFormatCode: value = value [11:19]
 						except exceptions.Exception, e:
 							t = self.et (value)
 							if errorTreatment == "abort":

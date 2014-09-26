@@ -367,9 +367,15 @@ class SAVSchema (SchemaRepresentation):
 						variable.length = savVariable.extendedStringLength
 				else:
 					variable.length = savVariable.type_
+			elif savVariable.write_.format_type == savbinary.dateFormatCode:
+				variable.type = 'character'
+				variable.length = 10
+			elif savVariable.write_.format_type == savbinary.timeFormatCode:
+				variable.type = 'character'
+				variable.length = 8
 			elif savVariable.write_.format_type == savbinary.datetimeFormatCode:
 				variable.type = 'character'
-				variable.length = 24
+				variable.length = 19
 			else:
 				variable.type = 'quantity'
 				if savVariable.write_.format_type == savbinary.floatFormatCode:

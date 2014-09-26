@@ -347,8 +347,6 @@ if __name__ == "__main__":
 				outputFormat = value
 			if option == "-v":
 				showVersion = True
-			if option == "-o":
-				outputFilename = value
 			if option == "-u":
 				surveyURIBase = value
 			if option == "-p":
