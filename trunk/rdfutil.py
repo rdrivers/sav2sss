@@ -23,13 +23,14 @@ import exceptions
 import traceback
 import re
 import fprog
-import rdflib
-import libxml2
-import json
 
-import libxml2Util
 import urllib
 import urllib2
+import libxml2
+
+import libxml2Util
+
+import rdflib
 
 class RequestWithMethod(urllib2.Request):
 	def __init__(self, method, *args, **kwargs):
@@ -38,8 +39,13 @@ class RequestWithMethod(urllib2.Request):
 
 	def get_method(self):
 		return self._method
-		
-from schema import *
+
+def urldecode (queryString):
+	result = {}
+	nameValues = queryString.split ("&")
+	for nameValue in nameValues:
+		name, value = nameValue.split ("=")
+	result [name] = urllib.unquote (value.replace ("+", "%20"))
 
 class RDFUtilError (exceptions.Exception): pass
 
@@ -128,9 +134,9 @@ class BigdataTripleWriter (TripleWriter):
 				(u ["modified"], u ["milliseconds"])
 	
 	def _writeBatch (self):
-		request = RequestWithMethod ("POST", endpoint + "?" +
-			urllib.urlencode ({"context-uri": contextURI}))
-		#request = RequestWithMethod ("PUT", endpoint)
+		request = RequestWithMethod ("POST", self.endpoint + "?" +
+			urllib.urlencode ({"context-uri": self.contextURI}))
+		#request = RequestWithMethod ("PUT", self.endpoint)
 		request.add_header ("Accept", "application/xml")
 		#request.add_header ("Content-Type", "text/x-nquads")
 		#request.add_data(self.graph.serialize (format="nquads"))
@@ -150,8 +156,8 @@ class BigdataTripleWriter (TripleWriter):
 				"milliseconds": xpc.getAttribute("self::data/@milliseconds")
 			}
 		except exceptions.Exception, error:
-			print "--Server response: %s" % (error.read ())
-			raise SSS2RDFError, "HTTP Update Error: %s" % error
+			print "--Server response: %s" % (error)
+			raise RDFUtilError, "HTTP Update Error: %s" % error
 		
 class NullTripleWriter (TripleWriter):
 	def __init__ (self, bindings, outputFormat, contextURI="", batchSize=0):
@@ -172,10 +178,18 @@ def makeQuery ():
 
 if __name__ == "__main__":
 	import sys
+	import os
 	import os.path
 	import getopt
 	import sssxmlschema
 	import datetime
+	import json
+	import jinja2
+
+	JINJA_ENVIRONMENT = jinja2.Environment(
+	    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
+	    extensions=['jinja2.ext.autoescape'],
+	    autoescape=False)
 		
 	version = 0.1
 	showVersion = False
@@ -185,14 +199,15 @@ if __name__ == "__main__":
 	endpoint = ""
 	maxTime = None
 	contextURI = None
+	templateFilename = None
 	
 	try:
-		optlist, args = getopt.getopt(sys.argv[1:], 'e:f:q:o:s:vm:c:')
+		optlist, args = getopt.getopt(sys.argv[1:], 'e:f:q:o:s:vm:c:t:')
 		for (option, value) in optlist:
 			if option == "-e":
 				endpoint = value
 			if option == "-f":
-				outputFormat = value
+				outputFormat = value.lower ()
 			if option == "-o":
 				outputFilename = value
 			if option == "-s":
@@ -203,6 +218,8 @@ if __name__ == "__main__":
 				maxTime = int (value)
 			if option == "-c":
 				contextURI = value
+			if option == "-t":
+				templateFilename = value
 
 		if showVersion:
 			print "..rdfutil version %s" % version
@@ -212,11 +229,16 @@ if __name__ == "__main__":
 		if len (args):
 			query = args [0]
 			if query.startswith ("@"):
-				query = open (query).readlines ()
+				query = open (query [1:]).read ()
 		else:
 			query = None
 		if len (args) > 1:
-			query = query % urllib.urldecode(queryArguments)
+			# query = query % urldecode(args [1])
+			template = JINJA_ENVIRONMENT.from_string (query)
+			query = template.render (urldecode(args [1]))
+			
+		if query is None:
+			raise RDFUtilError, "No query specified"
 
 		if store == "bigdata":
 			if not endpoint:
@@ -242,6 +264,9 @@ if __name__ == "__main__":
 			try:
 				response = urllib2.urlopen (request)
 				responseText = response.read ()
+				if outputFormat == "json" and templateFilename is not None:
+					template = JINJA_ENVIRONMENT.get_template(templateFilename)	
+					responseText = template.render (json.loads(responseText))
 				if outputFilename:
 					outputFile = open (outputFilename, 'w')
 					print >>outputFile, responseText
@@ -254,6 +279,7 @@ if __name__ == "__main__":
 					raise SSS2RDFError, "SPARQL error: %s" % error
 				else:
 					print "--Exception accessing server: %s" % error
+					traceback.print_exc ()
 		else:
 			raise RDFUtilError, "Unknown store type '%s'" % store
 			
